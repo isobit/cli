@@ -15,7 +15,6 @@ type Opts struct {
 	fields         []field
 	flagset        *flag.FlagSet
 	commands       map[string]*Opts
-	// run     func() error
 }
 
 type internalConfig struct {
@@ -41,9 +40,6 @@ func New(name string, config interface{}) *Opts {
 	}
 	fields = append(internalFields, fields...)
 
-	// for _, f := range fields {
-	// 	fmt.Printf("opts: %s: field: %+v flagValue.String()=%v\n", name, f, f.flagValue.String())
-	// }
 	opts.fields = fields
 
 	opts.flagset = flag.NewFlagSet(name, flag.ContinueOnError)
@@ -63,20 +59,6 @@ func (opts *Opts) AddCommand(cmdOpts *Opts) *Opts {
 	opts.commands[cmdOpts.Name] = cmdOpts
 	return opts
 }
-
-// func (opts *Opts) AddCommand(name string,  config interface{}) *Opts {
-// 	cmdOpts := New(name, config)
-// 	cmdOpts.parent = opts
-// 	opts.commands[name] = cmdOpts
-// 	return opts
-// }
-
-// func (opts *Opts) AddCommands(commands map[string]interface{}) *Opts {
-// 	for name, config := range commands {
-// 		opts.AddCommand(name, config)
-// 	}
-// 	return opts
-// }
 
 func (opts *Opts) Parse() ParsedOpts {
 	return opts.ParseArgs(os.Args)
@@ -132,7 +114,6 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 
 type ParsedOpts struct {
 	Err error
-	// run        func() error
 	Opts *Opts
 }
 
