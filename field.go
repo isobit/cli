@@ -117,10 +117,6 @@ type fieldValueMeta struct {
 
 func NewFieldValueMeta(structField reflect.StructField, value reflect.Value) fieldValueMeta {
 	tags := parseStructTagInner(structField.Tag.Get("opts"))
-	if helpTag, ok := structField.Tag.Lookup("help"); ok {
-		tags["help"] = helpTag
-	}
-
 	return fieldValueMeta{
 		structField: structField,
 		value:       value,
