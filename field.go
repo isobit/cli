@@ -1,10 +1,10 @@
 package opts
 
 import (
-	// "flag"
 	"fmt"
 	"reflect"
 
+	"github.com/huandu/xstrings"
 	"github.com/pkg/errors"
 )
 
@@ -86,7 +86,7 @@ func getField(meta fieldValueMeta) (field, error) {
 
 	name, explicitName := meta.tags["name"]
 	if !explicitName {
-		name = camel2dash(meta.structField.Name)
+		name = xstrings.ToKebabCase(meta.structField.Name)
 	}
 	f.Name = name
 
@@ -97,7 +97,6 @@ func getField(meta fieldValueMeta) (field, error) {
 	_, f.Required = meta.tags["required"]
 
 	if shortName, ok := meta.tags["short"]; ok {
-		// TODO: auto-pick shortname if empty string?
 		if len(shortName) != 1 {
 			return f, errors.New("short name must be 1 letter")
 		}
@@ -151,7 +150,6 @@ func getFlagValue(meta fieldValueMeta) (*genericFlagValue, error) {
 		interfaceables = append(interfaceables, val.Addr().Interface())
 	}
 	for _, i := range interfaceables {
-		// fmt.Printf("%s interfacable %+v, %+v\n", meta.structField.Name, i, reflect.TypeOf(i))
 		set = tryGetSetter(i)
 		str = tryGetStringer(i)
 	}
