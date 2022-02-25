@@ -109,12 +109,23 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 		}
 	}
 
+	runner, isRunnable := opts.config.(Runner)
+	if !isRunnable {
+		if len(opts.commands) > 0 {
+			return po.err(fmt.Errorf("no command specified"))
+		} else {
+			return po.err(fmt.Errorf("no run method implemented"))
+		}
+	}
+	po.runner = runner
+
 	return po
 }
 
 type ParsedOpts struct {
-	Err error
+	Err  error
 	Opts *Opts
+	runner Runner
 }
 
 func (po ParsedOpts) err(err error) ParsedOpts {
@@ -124,14 +135,10 @@ func (po ParsedOpts) err(err error) ParsedOpts {
 
 func (po ParsedOpts) Run() error {
 	if po.Err != nil {
-		os.Stderr.WriteString(po.Opts.Help())
+		po.Opts.WriteHelp(os.Stderr)
 		return po.Err
 	}
-	run := func() error { return fmt.Errorf("run not implemented") }
-	if runner, ok := po.Opts.config.(Runner); ok {
-		run = runner.Run
-	}
-	return run()
+	return po.runner.Run()
 }
 
 func (po ParsedOpts) RunFatal() {
