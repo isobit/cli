@@ -144,7 +144,7 @@ func (po ParsedOpts) Run() error {
 func (po ParsedOpts) RunFatal() {
 	err := po.Run()
 	if err != nil {
-		fmt.Printf("error: %s\n", err)
+		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(1)
 	}
 	os.Exit(0)
