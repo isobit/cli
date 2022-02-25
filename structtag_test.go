@@ -1,13 +1,13 @@
 package opts
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestParseStructTagInner(t *testing.T) {
-	cases := []struct{
-		in string
+	cases := []struct {
+		in  string
 		out map[string]string
 	}{
 		{

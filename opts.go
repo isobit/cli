@@ -123,8 +123,8 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 }
 
 type ParsedOpts struct {
-	Err  error
-	Opts *Opts
+	Err    error
+	Opts   *Opts
 	runner Runner
 }
 
