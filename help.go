@@ -1,6 +1,7 @@
 package opts
 
 import (
+	"io"
 	"strings"
 	"text/tabwriter"
 	"text/template"
@@ -14,12 +15,6 @@ var helpTemplateString = `USAGE:
 OPTIONS:
 {{- range .Flags}}
 \t    \t{{if .ShortName}}-{{.ShortName}}, {{end}}--{{.Name}}{{if .HasArg}} <{{if .Placeholder}}{{.Placeholder}}{{else}}VALUE{{end}}>{{end}}\t{{if and .HasArg .Default}}  (default: {{.Default}}){{else if .Required}}  (required){{end}}\t{{if .Help}}  {{.Help}}{{end}}
-{{- end}}
-{{- if .Args}}
-
-ARGUMENTS:
-{{- range .Args}}
-\t    \t<{{if .Placeholder}}{{.Placeholder}}{{else}}VALUE{{end}}>{{end}}\t  {{.Help}}
 {{- end}}
 {{- end}}
 {{- if .Commands}}
@@ -47,11 +42,6 @@ func init() {
 }
 
 func (opts *Opts) usage(command string) string {
-	flags := []field{}
-	args := []field{}
-	for _, f := range opts.fields {
-		flags = append(flags, f)
-	}
 	commands := []*Opts{}
 	for _, cmd := range opts.commands {
 		commands = append(commands, cmd)
@@ -59,13 +49,11 @@ func (opts *Opts) usage(command string) string {
 	data := struct {
 		Name     string
 		Flags    []field
-		Args     []field
 		Commands []*Opts
 		Command  string
 	}{
 		Name:     opts.Name,
-		Flags:    flags,
-		Args:     args,
+		Flags:    opts.fields,
 		Commands: commands,
 		Command:  command,
 	}
@@ -79,7 +67,13 @@ func (opts *Opts) usage(command string) string {
 	return sb.String()
 }
 
-func (opts *Opts) Help() string {
+func (opts *Opts) HelpString() string {
+	sb := strings.Builder{}
+	opts.WriteHelp(&sb)
+	return sb.String()
+}
+
+func (opts *Opts) WriteHelp(w io.Writer) {
 	flags := []field{}
 	args := []field{}
 	for _, f := range opts.fields {
@@ -101,12 +95,10 @@ func (opts *Opts) Help() string {
 		Commands: commands,
 	}
 
-	sb := strings.Builder{}
-	w := tabwriter.NewWriter(&sb, 0, 0, 0, ' ', 0)
-	err := helpTemplate.Execute(w, data)
+	tw := tabwriter.NewWriter(w, 0, 0, 0, ' ', 0)
+	err := helpTemplate.Execute(tw, data)
 	if err != nil {
 		panic(err)
 	}
-	w.Flush()
-	return sb.String()
+	tw.Flush()
 }
