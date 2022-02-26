@@ -14,7 +14,7 @@ var helpTemplateString = `USAGE:
 
 OPTIONS:
 {{- range .Flags}}
-\t    \t{{if .ShortName}}-{{.ShortName}}, {{end}}--{{.Name}}{{if .HasArg}} <{{if .Placeholder}}{{.Placeholder}}{{else}}VALUE{{end}}>{{end}}\t{{if and .HasArg .Default (not .Required)}}  (default: {{.Default}}){{end}}\t{{if .Help}}  {{.Help}}{{end}}
+\t    \t{{if .ShortName}}-{{.ShortName}}, {{end}}--{{.Name}}{{if .HasArg}} <{{if .Placeholder}}{{.Placeholder}}{{else}}VALUE{{end}}>{{end}}\t{{if .Help}}  {{.Help}}{{end}}{{if and .HasArg .Default (not .Required)}}  (default: {{.Default}}){{end}}
 {{- end}}
 {{- end}}
 {{- if .Commands}}

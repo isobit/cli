@@ -40,10 +40,10 @@ USAGE:
     greet [OPTIONS]
 
 OPTIONS:
-    -h, --help                            show usage help
-    --excited                             when true, use exclamation point
-    --greeting <VALUE>  (default: Hello)  the greeting to use
-    -n, --name <VALUE>                    your name
+    -h, --help          show usage help
+    --excited           when true, use exclamation point
+    --greeting <VALUE>  the greeting to use  (default: Hello)
+    -n, --name <VALUE>  your name
 
 error: flag: help requested
 $ greet -n world --excited
