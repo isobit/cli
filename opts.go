@@ -120,12 +120,8 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 	}
 
 	runner, isRunnable := opts.config.(Runner)
-	if !isRunnable {
-		if len(opts.commands) > 0 {
-			return po.err(fmt.Errorf("no command specified"))
-		} else {
-			return po.err(fmt.Errorf("no run method implemented"))
-		}
+	if !isRunnable && len(opts.commands) > 0 {
+		return po.err(fmt.Errorf("no command specified"))
 	}
 	po.runner = runner
 
@@ -147,6 +143,9 @@ func (po ParsedOpts) Run() error {
 	if po.Err != nil {
 		po.Opts.WriteHelp(errWriter)
 		return po.Err
+	}
+	if po.runner == nil {
+		return fmt.Errorf("no run method implemented")
 	}
 	return po.runner.Run()
 }
