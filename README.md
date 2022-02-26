@@ -12,7 +12,7 @@ import (
 )
 
 type App struct {
-	Excited bool `opts:"help='when true, use exclamation point'"`
+	Excited bool `opts:"help=use exclamation point"`
 	Greeting string `opts:"help=the greeting to use"`
 	Name string `opts:"required,short=n,help=your name"`
 }
@@ -41,7 +41,7 @@ USAGE:
 
 OPTIONS:
     -h, --help          show usage help
-    --excited           when true, use exclamation point
+    --excited           use exclamation point
     --greeting <VALUE>  the greeting to use  (default: Hello)
     -n, --name <VALUE>  your name
 
