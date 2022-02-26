@@ -126,14 +126,14 @@ func NewFieldValueMeta(structField reflect.StructField, value reflect.Value) fie
 }
 
 func getFlagValue(meta fieldValueMeta) (*genericFlagValue, error) {
-	// if val.Kind() == reflect.Ptr || val.Kind() == reflect.Interface {
-	// 	fmt.Printf("%s %+v %+v\n", meta.structField.Name, val.Type(), val.Kind())
-	// }
-
 	val := meta.value
+
+	// Can't set into a nil pointer, so allocate a zero value for the field's
+	// type to get a placeholder value to use with getters/stringers. Once
+	// we've obtained a setter, we'll wrap it with pointerSetter so that the
+	// actual pointer isn't set unless a flag is passed.
 	isNilPointerSetter := false
 	if val.Kind() == reflect.Ptr && val.IsZero() {
-		// fmt.Printf("nil pointer %s %+v %+v\n", meta.structField.Name, meta.value.Type(), meta.value.Kind())
 		val = reflect.New(meta.value.Type().Elem())
 		isNilPointerSetter = true
 	}
@@ -141,6 +141,8 @@ func getFlagValue(meta fieldValueMeta) (*genericFlagValue, error) {
 	var set setter
 	var str stringer
 
+	// Interfaces might be implemented using value or pointer receivers, so
+	// we'll try both if we can take an address.
 	interfaceables := []interface{}{val.Interface()}
 	if val.CanAddr() {
 		interfaceables = append(interfaceables, val.Addr().Interface())
@@ -166,6 +168,8 @@ func getFlagValue(meta fieldValueMeta) (*genericFlagValue, error) {
 		return nil, fmt.Errorf("no stringer for type %s", meta.value.Type())
 	}
 
+	// Wrap nil pointer placeholder value setter with one that will set the
+	// real pointer to the placeholder if the flag is passed.
 	if isNilPointerSetter {
 		set = pointerSetter{
 			setter:      set,
