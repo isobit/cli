@@ -6,13 +6,15 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/isobit/opts"
 )
 
 type App struct {
-	Excited bool
-	Greeting string
-	Name string `opts:"required,short=n"`
+	Excited bool `opts:"help='when true, use exclamation point'"`
+	Greeting string `opts:"help=the greeting to use"`
+	Name string `opts:"required,short=n,help=your name"`
 }
 
 func (app *App) Run() error {
@@ -26,13 +28,24 @@ func (app *App) Run() error {
 
 
 func main() {
-	opts.New("greet", &app{Greeting: "Hello"}).
+	opts.New("greet", &App{Greeting: "Hello"}).
 		Parse().
 		RunFatal()
 }
 ```
 
 ```console
+$ greet --help
+USAGE:
+    greet [OPTIONS]
+
+OPTIONS:
+    -h, --help                            show usage help
+    --excited                             when true, use exclamation point
+    --greeting <VALUE>  (default: Hello)  the greeting to use
+    -n, --name <VALUE>                    your name
+
+error: flag: help requested
 $ greet -n world --excited
 Hello, world!
 ```
