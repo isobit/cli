@@ -19,8 +19,9 @@ func tryGetSetter(i interface{}) setter {
 		return binarySetter{v}
 	case *time.Duration:
 		return durationSetter{v}
+	case *string:
+		return stringSetter{v}
 	case
-		*string,
 		*bool,
 		*int, *int8, *int16, *int32, *int64,
 		*uint8, *uint16, *uint32, *uint64,
@@ -29,6 +30,15 @@ func tryGetSetter(i interface{}) setter {
 	default:
 		return nil
 	}
+}
+
+type stringSetter struct {
+	v *string
+}
+
+func (ss stringSetter) Set(s string) error {
+	*ss.v = s
+	return nil
 }
 
 type textSetter struct {
