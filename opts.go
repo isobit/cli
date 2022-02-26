@@ -3,9 +3,12 @@ package opts
 import (
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 )
+
+var errWriter io.Writer = os.Stderr
 
 type Opts struct {
 	Name           string
@@ -135,7 +138,7 @@ func (po ParsedOpts) err(err error) ParsedOpts {
 
 func (po ParsedOpts) Run() error {
 	if po.Err != nil {
-		po.Opts.WriteHelp(os.Stderr)
+		po.Opts.WriteHelp(errWriter)
 		return po.Err
 	}
 	return po.runner.Run()
@@ -144,7 +147,7 @@ func (po ParsedOpts) Run() error {
 func (po ParsedOpts) RunFatal() {
 	err := po.Run()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s\n", err)
+		fmt.Fprintf(errWriter, "error: %s\n", err)
 		os.Exit(1)
 	}
 	os.Exit(0)
