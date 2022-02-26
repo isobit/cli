@@ -102,6 +102,13 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 		}
 	}
 
+	if beforer, ok := opts.config.(Beforer); ok {
+		err := beforer.Before()
+		if err != nil {
+			return po.err(err)
+		}
+	}
+
 	rargs := opts.flagset.Args()
 	if len(rargs) > 0 {
 		cmdName := rargs[0]
@@ -155,4 +162,8 @@ func (po ParsedOpts) RunFatal() {
 
 type Runner interface {
 	Run() error
+}
+
+type Beforer interface {
+	Before() error
 }
