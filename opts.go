@@ -21,7 +21,7 @@ type Opts struct {
 }
 
 type internalConfig struct {
-	Help bool `opts:"short=h" help:"show usage help"`
+	Help bool `opts:"short=h,help=show usage help"`
 }
 
 func New(name string, config interface{}) *Opts {
