@@ -31,15 +31,20 @@ type internalConfig struct {
 // The parsing behavior for config fields can be controlled with the following
 // struct field tags, specified like `opts:"key1,key2=value2"`:
 //
-// - `required` return a usage error if the field is not set explicitly
-// - `help=<text>` help text to be printed with the flag usage
-// - `placeholder=<text>` custom placeholder to use in the flag usage (the
-//    default placeholder is "VALUE")
-// - `name=<name>` override the flag name derived from the field name with a
-//    custom one
-// - `short=<shortname>` adds a short flag alias for the field; must be 1 char
-// - `env=<varName>` parse the value from the specified environment variable
-//    name if it is not set via args
+// `required` return a usage error if the field is not set explicitly
+//
+// `help=<text>` help text to be printed with the flag usage
+//
+// `placeholder=<text>` custom placeholder to use in the flag usage (the
+// default placeholder is "VALUE")
+//
+// `name=<name>` override the flag name derived from the field name with a
+// custom one
+//
+// `short=<shortname>` adds a short flag alias for the field; must be 1 char
+//
+// `env=<varName>` parse the value from the specified environment variable name
+// if it is not set via args
 func New(name string, config interface{}) *Opts {
 	opts := Opts{
 		Name:     name,
