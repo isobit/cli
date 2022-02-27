@@ -24,6 +24,22 @@ type internalConfig struct {
 	Help bool `opts:"short=h,help=show usage help"`
 }
 
+// Create a new Opts with the provider name and config. The config must be a
+// pointer to a configuration struct. Default values for fields can be
+// specified by simply setting them on the passed in struct value.
+//
+// The parsing behavior for config fields can be controlled with the following
+// struct field tags, specified like `opts:"key1,key2=value2"`:
+//
+// - `required` return a usage error if the field is not set explicitly
+// - `help=<text>` help text to be printed with the flag usage
+// - `placeholder=<text>` custom placeholder to use in the flag usage (the
+//    default placeholder is "VALUE")
+// - `name=<name>` override the flag name derived from the field name with a
+//    custom one
+// - `short=<shortname>` adds a short flag alias for the field; must be 1 char
+// - `env=<varName>` parse the value from the specified environment variable
+//    name if it is not set via args
 func New(name string, config interface{}) *Opts {
 	opts := Opts{
 		Name:     name,
@@ -57,6 +73,8 @@ func New(name string, config interface{}) *Opts {
 	return &opts
 }
 
+// AddCommand registers another Opts instance as a subcommand of this Opts
+// instance.
 func (opts *Opts) AddCommand(cmdOpts *Opts) *Opts {
 	cmdOpts.parent = opts
 	opts.commands[cmdOpts.Name] = cmdOpts
@@ -69,6 +87,8 @@ func (opts *Opts) AddCommands(cmds []*Opts) *Opts {
 	}
 	return opts
 }
+
+// Parse is a shortcut for calling `ParseArgs(os.Args)`
 func (opts *Opts) Parse() ParsedOpts {
 	return opts.ParseArgs(os.Args)
 }
@@ -99,6 +119,9 @@ func (opts *Opts) CheckRequired() error {
 	return nil
 }
 
+// Parse parses using the passed-in args slice and OS-provided environment
+// variables and returns a ParsedOpts instance which can be used for further
+// method chaining.
 func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 	po := ParsedOpts{Opts: opts}
 
@@ -159,11 +182,15 @@ type ParsedOpts struct {
 	runner Runner
 }
 
+// Convenience method for returning errors wrapped as ParsedOpts.
 func (po ParsedOpts) err(err error) ParsedOpts {
 	po.Err = err
 	return po
 }
 
+// Run calls the Run method of the underlying Opts config or, if an error
+// occurred during parsing, prints the help text and returns that error
+// instead.
 func (po ParsedOpts) Run() error {
 	if po.Err != nil {
 		po.Opts.WriteHelp(errWriter)
@@ -175,6 +202,9 @@ func (po ParsedOpts) Run() error {
 	return po.runner.Run()
 }
 
+// RunFatal is like Run, except it automatically handles printing out any
+// errors returned by the Run method of the underlying Opts config, and exits
+// with an appropriate status (1 if error, 0 otherwise).
 func (po ParsedOpts) RunFatal() {
 	err := po.Run()
 	if err != nil {

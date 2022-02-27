@@ -1,5 +1,7 @@
 # opts
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/isobit/opts.svg)](https://pkg.go.dev/github.com/isobit/opts)
+
 ## Example
 
 ```go
