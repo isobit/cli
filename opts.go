@@ -63,8 +63,40 @@ func (opts *Opts) AddCommand(cmdOpts *Opts) *Opts {
 	return opts
 }
 
+func (opts *Opts) AddCommands(cmds []*Opts) *Opts {
+	for _, cmd := range cmds {
+		opts.AddCommand(cmd)
+	}
+	return opts
+}
 func (opts *Opts) Parse() ParsedOpts {
 	return opts.ParseArgs(os.Args)
+}
+
+// ParseEnvVars sets any unset field values using the environment variable
+// matching the "env" tag of the field, if present.
+func (opts *Opts) ParseEnvVars() error {
+	for _, f := range opts.fields {
+		if f.EnvVarName == "" || f.flagValue.setCount > 0 {
+			continue
+		}
+		if s, ok := os.LookupEnv(f.EnvVarName); ok {
+			if err := f.flagValue.Set(s); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// Returns an error if any fields are required but have not been set.
+func (opts *Opts) CheckRequired() error {
+	for _, f := range opts.fields {
+		if f.Required && f.flagValue.setCount < 1 {
+			return fmt.Errorf("required flag %s not set", f.Name)
+		}
+	}
+	return nil
 }
 
 func (opts *Opts) ParseArgs(args []string) ParsedOpts {
@@ -79,8 +111,7 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 		}
 	}
 
-	err := opts.flagset.Parse(args)
-	if err != nil {
+	if err := opts.flagset.Parse(args); err != nil {
 		return po.err(err)
 	}
 
@@ -88,18 +119,12 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 		return po.err(flag.ErrHelp)
 	}
 
-	for _, f := range opts.fields {
-		if f.EnvVarName != "" && f.flagValue.setCount < 1 {
-			if s, ok := os.LookupEnv(f.EnvVarName); ok {
-				f.flagValue.Set(s)
-			}
-		}
+	if err := opts.ParseEnvVars(); err != nil {
+		return po.err(err)
 	}
 
-	for _, f := range opts.fields {
-		if f.Required && f.flagValue.setCount < 1 {
-			return po.err(fmt.Errorf("required flag %s not set", f.Name))
-		}
+	if err := opts.CheckRequired(); err != nil {
+		return po.err(err)
 	}
 
 	if beforer, ok := opts.config.(Beforer); ok {
