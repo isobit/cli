@@ -55,7 +55,7 @@ func getFields(sv reflect.Value) ([]field, error) {
 			continue
 		}
 
-		meta := NewFieldValueMeta(sf, val)
+		meta := newFieldValueMeta(sf, val)
 
 		if meta.embedded {
 			// embedded struct, recurse
@@ -115,7 +115,7 @@ type fieldValueMeta struct {
 	tags        map[string]string
 }
 
-func NewFieldValueMeta(structField reflect.StructField, value reflect.Value) fieldValueMeta {
+func newFieldValueMeta(structField reflect.StructField, value reflect.Value) fieldValueMeta {
 	tags := parseStructTagInner(structField.Tag.Get("opts"))
 	return fieldValueMeta{
 		structField: structField,
