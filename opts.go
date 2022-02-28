@@ -142,13 +142,10 @@ func (opts *Opts) CheckRequired() error {
 func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 	po := ParsedOpts{Opts: opts}
 
-	// if we're the root, the first arg is the program name
-	if opts.parent == nil {
-		// prog := ""
-		if len(args) > 0 {
-			// prog = args[0]
-			args = args[1:]
-		}
+	// if we're the root, the first arg is the program name and should be
+	// skipped.
+	if opts.parent == nil && len(args) > 0 {
+		args = args[1:]
 	}
 
 	if err := opts.flagset.Parse(args); err != nil {
