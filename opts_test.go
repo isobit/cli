@@ -150,3 +150,18 @@ func TestOptsRun(t *testing.T) {
 
 	assert.Equal(t, "Hello, foo!", app.message)
 }
+
+func TestOptsEnvVar(t *testing.T) {
+	type App struct {
+		Foo string `opts:"env=FOO"`
+	}
+	app := &App{}
+
+	t.Setenv("FOO", "quux")
+	po := New("test", app).
+		ParseArgs([]string{
+			"test",
+		})
+	assert.Nil(t, po.Err)
+	assert.Equal(t, "quux", app.Foo)
+}
