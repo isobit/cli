@@ -14,15 +14,22 @@ var helpTemplateString = `USAGE:
 
 OPTIONS:
 {{- range .Flags}}
-\t    \t{{if .ShortName}}-{{.ShortName}}, {{end}}--{{.Name}}{{if .HasArg}} <{{if .Placeholder}}{{.Placeholder}}{{else}}VALUE{{end}}>{{end}}\t{{if .Help}}  {{.Help}}{{end}}{{if and .HasArg .Default (not .Required)}}  (default: {{.Default}}){{end}}
+\t    \t
+{{- if .ShortName}}-{{.ShortName}}, {{end}}--{{.Name}}
+{{- if .HasArg}} <{{if .Placeholder}}{{.Placeholder}}{{else}}VALUE{{end}}>{{end}}\t
+{{- if .Help}}  {{.Help}}{{end}}
+{{- if and .HasArg .Default (not .Required)}}  (default: {{.Default}}){{end}}
 {{- end}}
+
 {{- end}}
+
 {{- if .Commands}}
 
 COMMANDS:
 {{- range .Commands}}
-\t    \t{{.Name}}
+\t    \t{{.Name}}\t
 {{- end}}
+
 {{- end}}
 
 `
@@ -31,10 +38,8 @@ var helpTemplate *template.Template
 var usageTemplate *template.Template
 
 func init() {
-	replacer := strings.NewReplacer(`\t`, "\t", `\f`, "\f")
-	preRenderHelpTemplateString := replacer.Replace(helpTemplateString)
 	helpTemplate = template.Must(
-		template.New("help").Parse(preRenderHelpTemplateString),
+		template.New("help").Parse(helpTemplateString),
 	)
 	usageTemplate = template.Must(
 		template.New("usage").Parse(usageTemplateString),
@@ -75,7 +80,6 @@ func (opts *Opts) HelpString() string {
 
 func (opts *Opts) WriteHelp(w io.Writer) {
 	flags := []field{}
-	args := []field{}
 	for _, f := range opts.fields {
 		flags = append(flags, f)
 	}
@@ -86,19 +90,37 @@ func (opts *Opts) WriteHelp(w io.Writer) {
 	data := struct {
 		Usage    string
 		Flags    []field
-		Args     []field
 		Commands []*Opts
 	}{
 		Usage:    opts.usage(""),
 		Flags:    flags,
-		Args:     args,
 		Commands: commands,
 	}
 
-	tw := tabwriter.NewWriter(w, 0, 0, 0, ' ', 0)
+	tw := newEscapedTabWriter(w)
 	err := helpTemplate.Execute(tw, data)
 	if err != nil {
 		panic(err)
 	}
 	tw.Flush()
+}
+
+type escapedTabWriter struct {
+	replacer  *strings.Replacer
+	tabWriter *tabwriter.Writer
+}
+
+func newEscapedTabWriter(w io.Writer) escapedTabWriter {
+	return escapedTabWriter{
+		replacer:  strings.NewReplacer(`\t`, "\t", `\f`, "\f"),
+		tabWriter: tabwriter.NewWriter(w, 0, 0, 0, ' ', 0),
+	}
+}
+
+func (w escapedTabWriter) Write(p []byte) (int, error) {
+	return w.replacer.WriteString(w.tabWriter, string(p))
+}
+
+func (w escapedTabWriter) Flush() error {
+	return w.tabWriter.Flush()
 }
