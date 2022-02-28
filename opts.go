@@ -12,6 +12,8 @@ var errWriter io.Writer = os.Stderr
 
 type Opts struct {
 	Name           string
+	Help           string
+	ShortHelp      string
 	parent         *Opts
 	config         interface{}
 	internalConfig internalConfig
@@ -76,6 +78,16 @@ func New(name string, config interface{}) *Opts {
 	}
 
 	return &opts
+}
+
+func (opts *Opts) SetHelp(help string) *Opts {
+	opts.Help = help
+	return opts
+}
+
+func (opts *Opts) SetShortHelp(help string) *Opts {
+	opts.ShortHelp = help
+	return opts
 }
 
 // AddCommand registers another Opts instance as a subcommand of this Opts

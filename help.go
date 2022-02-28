@@ -8,8 +8,14 @@ import (
 )
 
 var usageTemplateString = `{{.Name}}{{if .Flags}} [OPTIONS]{{end}}{{if and .Commands (not .Command)}} <COMMAND>{{end}}`
-var helpTemplateString = `USAGE:
+var helpTemplateString = `
+{{- if .Help -}}
+{{.Help}}
+
+{{end -}}
+USAGE:
     {{.Usage}}
+
 {{- if .Flags}}
 
 OPTIONS:
@@ -28,6 +34,7 @@ OPTIONS:
 COMMANDS:
 {{- range .Commands}}
 \t    \t{{.Name}}\t
+{{- if .ShortHelp}}  {{.ShortHelp}}{{end}}
 {{- end}}
 
 {{- end}}
@@ -89,10 +96,12 @@ func (opts *Opts) WriteHelp(w io.Writer) {
 	}
 	data := struct {
 		Usage    string
+		Help     string
 		Flags    []field
 		Commands []*Opts
 	}{
 		Usage:    opts.usage(""),
+		Help:     opts.Help,
 		Flags:    flags,
 		Commands: commands,
 	}
