@@ -159,7 +159,7 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 	}
 
 	if err := opts.ParseEnvVars(); err != nil {
-		return po.err(errors.Wrap(err, "failed to environment variables"))
+		return po.err(errors.Wrap(err, "failed to parse environment variables"))
 	}
 
 	if err := opts.CheckRequired(); err != nil {
