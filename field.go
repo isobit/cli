@@ -78,17 +78,17 @@ func getFields(sv reflect.Value) ([]field, error) {
 func getField(meta fieldValueMeta) (field, error) {
 	f := field{}
 
-	flagValue, err := getFlagValue(meta)
-	if err != nil {
-		return f, errors.Wrap(err, "not supported")
-	}
-	f.flagValue = flagValue
-
 	name, explicitName := meta.tags["name"]
 	if !explicitName {
 		name = xstrings.ToKebabCase(meta.structField.Name)
 	}
 	f.Name = name
+
+	flagValue, err := getFlagValue(name, meta)
+	if err != nil {
+		return f, errors.Wrap(err, "not supported")
+	}
+	f.flagValue = flagValue
 
 	f.Help = meta.tags["help"]
 	f.Placeholder = meta.tags["placeholder"]
@@ -125,7 +125,7 @@ func newFieldValueMeta(structField reflect.StructField, value reflect.Value) fie
 	}
 }
 
-func getFlagValue(meta fieldValueMeta) (*genericFlagValue, error) {
+func getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
 	val := meta.value
 
 	// Can't set into a nil pointer, so allocate a zero value for the field's
@@ -179,6 +179,7 @@ func getFlagValue(meta fieldValueMeta) (*genericFlagValue, error) {
 	}
 
 	return &genericFlagValue{
+		name:       name,
 		setter:     set,
 		stringer:   str,
 		isBoolFlag: meta.value.Kind() == reflect.Bool,
@@ -206,6 +207,7 @@ type stringer interface {
 }
 
 type genericFlagValue struct {
+	name string
 	setter
 	stringer
 	isBoolFlag bool
@@ -217,7 +219,11 @@ func (f *genericFlagValue) Set(s string) error {
 		panic("genericFlagValue has no setter, this should not happen")
 	}
 	f.setCount += 1
-	return f.setter.Set(s)
+	err := f.setter.Set(s)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set option %s from string \"%s\"", f.name, s)
+	}
+	return nil
 }
 
 func (f *genericFlagValue) String() string {

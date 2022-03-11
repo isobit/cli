@@ -66,7 +66,7 @@ func (ss scanfSetter) Set(s string) error {
 	if err != nil {
 		return err
 	} else if n == 0 {
-		return errors.New("could not be parsed")
+		return errors.New("scanf did not scan any items")
 	}
 	return nil
 }
