@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOptsBasic(t *testing.T) {
@@ -22,7 +23,7 @@ func TestOptsBasic(t *testing.T) {
 			"--string", "hello",
 			"--int", "42",
 		})
-	assert.Nil(t, po.Err)
+	require.Nil(t, po.Err)
 
 	expected := &App{
 		Bool:   true,
@@ -74,14 +75,14 @@ func TestOptsKitchenSink(t *testing.T) {
 			"subcmd",
 			"--message", "Hello, world!",
 		})
-	assert.Nil(t, po.Err)
+	require.Nil(t, po.Err)
 
 	stringPointerValue := "hello"
 	int64PointerValue := int64(123)
 	timeValue, err := time.Parse(time.RFC3339, "2022-02-22T22:22:22Z")
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	durationValue, err := time.ParseDuration("15m")
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	appExpected := &App{
 		Bool:              true,
@@ -143,10 +144,10 @@ func TestOptsRun(t *testing.T) {
 			"--user", "foo",
 			"--punctuation", "!",
 		})
-	assert.Nil(t, po.Err)
+	require.Nil(t, po.Err)
 
 	err := po.Run()
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	assert.Equal(t, "Hello, foo!", app.message)
 }
@@ -162,6 +163,6 @@ func TestOptsEnvVar(t *testing.T) {
 		ParseArgs([]string{
 			"test",
 		})
-	assert.Nil(t, po.Err)
+	require.Nil(t, po.Err)
 	assert.Equal(t, "quux", app.Foo)
 }
