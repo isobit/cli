@@ -6,6 +6,8 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+
+	"github.com/pkg/errors"
 )
 
 var errWriter io.Writer = os.Stderr
@@ -149,7 +151,7 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 	}
 
 	if err := opts.flagset.Parse(args); err != nil {
-		return po.err(err)
+		return po.err(errors.Wrap(err, "failed to parse args"))
 	}
 
 	if opts.internalConfig.Help {
@@ -157,7 +159,7 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 	}
 
 	if err := opts.ParseEnvVars(); err != nil {
-		return po.err(err)
+		return po.err(errors.Wrap(err, "failed to environment variables"))
 	}
 
 	if err := opts.CheckRequired(); err != nil {
