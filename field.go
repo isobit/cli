@@ -197,8 +197,15 @@ type pointerSetter struct {
 }
 
 func (ps pointerSetter) Set(s string) error {
-	ps.setter.Set(s)
+	// Try to set the placeholder.
+	err := ps.setter.Set(s)
+	if err != nil {
+		return err
+	}
+
+	// Set the target pointer to the placeholder pointer.
 	ps.targetValue.Set(ps.newValue)
+
 	return nil
 }
 
@@ -216,7 +223,7 @@ type genericFlagValue struct {
 
 func (f *genericFlagValue) Set(s string) error {
 	if f.setter == nil {
-		panic("genericFlagValue has no setter, this should not happen")
+		panic("opts: genericFlagValue has no setter, this should not happen")
 	}
 	f.setCount += 1
 	err := f.setter.Set(s)

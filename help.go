@@ -1,6 +1,7 @@
 package opts
 
 import (
+	"fmt"
 	"io"
 	"strings"
 	"text/tabwriter"
@@ -75,7 +76,10 @@ func (opts *Opts) usage(command string) string {
 		sb.WriteString(opts.parent.usage(opts.Name))
 		sb.WriteString(" ")
 	}
-	usageTemplate.Execute(&sb, data)
+	err := usageTemplate.Execute(&sb, data)
+	if err != nil {
+		panic(fmt.Sprintf("opts: error executing usage template: %s", err))
+	}
 	return sb.String()
 }
 
@@ -86,10 +90,6 @@ func (opts *Opts) HelpString() string {
 }
 
 func (opts *Opts) WriteHelp(w io.Writer) {
-	flags := []field{}
-	for _, f := range opts.fields {
-		flags = append(flags, f)
-	}
 	commands := []*Opts{}
 	for _, cmd := range opts.commands {
 		commands = append(commands, cmd)
@@ -102,14 +102,14 @@ func (opts *Opts) WriteHelp(w io.Writer) {
 	}{
 		Usage:    opts.usage(""),
 		Help:     opts.Help,
-		Flags:    flags,
+		Flags:    opts.fields, // for now all fields are flags (will impl args later)
 		Commands: commands,
 	}
 
 	tw := newEscapedTabWriter(w)
 	err := helpTemplate.Execute(tw, data)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("opts: error executing help template: %s", err))
 	}
 	tw.Flush()
 }
