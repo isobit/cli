@@ -59,12 +59,12 @@ func New(name string, config interface{}) *Opts {
 
 	fields, err := getFieldsFromConfig(config)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("opts: %s", err))
 	}
 
 	internalFields, err := getFieldsFromConfig(&opts.internalConfig)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("opts: error building internal config: %s", err))
 	}
 	fields = append(internalFields, fields...)
 
