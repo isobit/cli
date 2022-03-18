@@ -14,9 +14,9 @@ import (
 )
 
 type App struct {
-	Excited bool `opts:"help=use exclamation point"`
-	Greeting string `opts:"help=the greeting to use"`
-	Name string `opts:"required,short=n,help=your name"`
+	Excited  bool   `opts:"help='when true, use exclamation point'"`
+	Greeting string `opts:"env=GREETING,help=the greeting to use"`
+	Name     string `opts:"required,short=n,help=your name"`
 }
 
 func (app *App) Run() error {
@@ -28,9 +28,8 @@ func (app *App) Run() error {
 	return nil
 }
 
-
 func main() {
-	opts.New("greet", &App{Greeting: "Hello"}).
+	opts.New("greet", &App{Greeting: "Hey"}).
 		Parse().
 		RunFatal()
 }
@@ -44,10 +43,10 @@ USAGE:
 OPTIONS:
     -h, --help          show usage help
     --excited           use exclamation point
-    --greeting <VALUE>  the greeting to use  (default: Hello)
+    --greeting <VALUE>  the greeting to use  (default: Hey)
     -n, --name <VALUE>  your name
 
 error: flag: help requested
-$ greet -n world --excited
+$ GREETING="Hello" greet -n world --excited
 Hello, world!
 ```
