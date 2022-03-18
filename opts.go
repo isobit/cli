@@ -35,6 +35,7 @@ type internalConfig struct {
 // The parsing behavior for config fields can be controlled with the following
 // struct field tags, specified like `opts:"key1,key2=value2"`:
 //
+// "-" - exclude the field from opts (unexported fields are excluded by default)
 //
 // "required" - return a usage error if the field is not set explicitly
 //

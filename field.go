@@ -57,6 +57,11 @@ func getFields(sv reflect.Value) ([]field, error) {
 
 		meta := newFieldValueMeta(sf, val)
 
+		// ignore fields with the "-" tag (like json)
+		if _, ok := meta.tags["-"]; ok {
+			continue
+		}
+
 		if meta.embedded {
 			// embedded struct, recurse
 			embeddedFields, err := getFields(val)
