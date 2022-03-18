@@ -14,6 +14,7 @@ var errWriter io.Writer = os.Stderr
 
 type Opts struct {
 	Name           string
+	ShortName      string
 	Help           string
 	ShortHelp      string
 	parent         *Opts
@@ -84,6 +85,11 @@ func New(name string, config interface{}) *Opts {
 	return &opts
 }
 
+func (opts *Opts) SetShortName(shortName string) *Opts {
+	opts.ShortName = shortName
+	return opts
+}
+
 func (opts *Opts) SetHelp(help string) *Opts {
 	opts.Help = help
 	return opts
@@ -99,6 +105,9 @@ func (opts *Opts) SetShortHelp(help string) *Opts {
 func (opts *Opts) AddCommand(cmdOpts *Opts) *Opts {
 	cmdOpts.parent = opts
 	opts.commands[cmdOpts.Name] = cmdOpts
+	if cmdOpts.ShortName != "" {
+		opts.commands[cmdOpts.ShortName] = cmdOpts
+	}
 	return opts
 }
 

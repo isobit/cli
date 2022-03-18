@@ -166,3 +166,15 @@ func TestOptsEnvVar(t *testing.T) {
 	require.Nil(t, po.Err)
 	assert.Equal(t, "quux", app.Foo)
 }
+
+func TestOptsShortName(t *testing.T) {
+	type App struct{}
+	type Subcmd struct{}
+
+	po := New("test", &App{}).
+		AddCommand(New("subcmd", &Subcmd{}).SetShortName("s")).
+		ParseArgs([]string{
+			"test", "s",
+		})
+	assert.Nil(t, po.Err)
+}
