@@ -137,32 +137,6 @@ func (opts *Opts) Parse() ParsedOpts {
 	return opts.ParseArgs(os.Args)
 }
 
-// ParseEnvVars sets any unset field values using the environment variable
-// matching the "env" tag of the field, if present.
-func (opts *Opts) ParseEnvVars() error {
-	for _, f := range opts.fields {
-		if f.EnvVarName == "" || f.flagValue.setCount > 0 {
-			continue
-		}
-		if s, ok := os.LookupEnv(f.EnvVarName); ok {
-			if err := f.flagValue.Set(s); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// Returns an error if any fields are required but have not been set.
-func (opts *Opts) CheckRequired() error {
-	for _, f := range opts.fields {
-		if f.Required && f.flagValue.setCount < 1 {
-			return fmt.Errorf("required flag %s not set", f.Name)
-		}
-	}
-	return nil
-}
-
 // Parse parses using the passed-in args slice and OS-provided environment
 // variables and returns a ParsedOpts instance which can be used for further
 // method chaining.
@@ -183,11 +157,11 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 		return po.err(flag.ErrHelp)
 	}
 
-	if err := opts.ParseEnvVars(); err != nil {
+	if err := opts.parseEnvVars(); err != nil {
 		return po.err(errors.Wrap(err, "failed to parse environment variables"))
 	}
 
-	if err := opts.CheckRequired(); err != nil {
+	if err := opts.checkRequired(); err != nil {
 		return po.err(err)
 	}
 
@@ -215,6 +189,32 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 	po.runner = runner
 
 	return po
+}
+
+// parseEnvVars sets any unset field values using the environment variable
+// matching the "env" tag of the field, if present.
+func (opts *Opts) parseEnvVars() error {
+	for _, f := range opts.fields {
+		if f.EnvVarName == "" || f.flagValue.setCount > 0 {
+			continue
+		}
+		if s, ok := os.LookupEnv(f.EnvVarName); ok {
+			if err := f.flagValue.Set(s); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// checkRequired returns an error if any fields are required but have not been set.
+func (opts *Opts) checkRequired() error {
+	for _, f := range opts.fields {
+		if f.Required && f.flagValue.setCount < 1 {
+			return fmt.Errorf("required flag %s not set", f.Name)
+		}
+	}
+	return nil
 }
 
 type ParsedOpts struct {
