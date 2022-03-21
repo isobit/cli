@@ -248,7 +248,9 @@ func (po ParsedOpts) Run() error {
 func (po ParsedOpts) RunFatal() {
 	err := po.Run()
 	if err != nil {
-		fmt.Fprintf(errWriter, "error: %s\n", err)
+		if err != flag.ErrHelp {
+			fmt.Fprintf(errWriter, "error: %s\n", err)
+		}
 		os.Exit(1)
 	}
 	os.Exit(0)
