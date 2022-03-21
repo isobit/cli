@@ -167,6 +167,21 @@ func TestOptsEnvVar(t *testing.T) {
 	assert.Equal(t, "quux", app.Foo)
 }
 
+func TestOptsEnvVarPrecedence(t *testing.T) {
+	type App struct {
+		Foo string `opts:"env=FOO"`
+	}
+	app := &App{}
+
+	t.Setenv("FOO", "quux")
+	po := New("test", app).
+		ParseArgs([]string{
+			"test", "--foo", "override",
+		})
+	require.Nil(t, po.Err)
+	assert.Equal(t, "override", app.Foo)
+}
+
 func TestOptsShortName(t *testing.T) {
 	type App struct{}
 	type Subcmd struct{}
