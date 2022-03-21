@@ -185,7 +185,7 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 	if !isRunnable && len(opts.commands) > 0 {
 		return po.err(fmt.Errorf("no command specified"))
 	}
-	po.runner = runner
+	po.Runner = runner
 
 	return po
 }
@@ -219,7 +219,7 @@ func (opts *Opts) checkRequired() error {
 type ParsedOpts struct {
 	Err    error
 	Opts   *Opts
-	runner Runner
+	Runner Runner
 }
 
 // Convenience method for returning errors wrapped as ParsedOpts.
@@ -236,10 +236,10 @@ func (po ParsedOpts) Run() error {
 		po.Opts.WriteHelp(errWriter)
 		return po.Err
 	}
-	if po.runner == nil {
+	if po.Runner == nil {
 		return fmt.Errorf("no run method implemented")
 	}
-	return po.runner.Run()
+	return po.Runner.Run()
 }
 
 // RunFatal is like Run, except it automatically handles printing out any
