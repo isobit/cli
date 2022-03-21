@@ -29,9 +29,9 @@ type internalConfig struct {
 	Help bool `opts:"short=h,help=show usage help"`
 }
 
-// Create a new Opts with the provider name and config. The config must be a
-// pointer to a configuration struct. Default values for fields can be
-// specified by simply setting them on the passed in struct value.
+// New creates a new Opts with the provided name and config. The config must be
+// a pointer to a configuration struct. Default values can be specified by
+// simply setting them on the config struct.
 //
 // The parsing behavior for config fields can be controlled with the following
 // struct field tags, specified like `opts:"key1,key2=value2"`:
@@ -52,7 +52,21 @@ type internalConfig struct {
 //
 // "env=<varName>" - parse the value from the specified environment variable name
 // if it is not set via args
+// New returns an Opts pointer for further method chaining. If an error is
+// encountered while building the options, such as a struct field having an
+// unsupported type, New will panic. If you would like to have errors returned
+// for handling, use Build instead.
 func New(name string, config interface{}) *Opts {
+	opts, err := Build(name, config)
+	if err != nil {
+		panic(fmt.Sprintf("opts: %s", err))
+	}
+	return opts
+}
+
+// Build is like New, but it returns any errors instead of calling panic, at
+// the expense of being harder to chain.
+func Build(name string, config interface{}) (*Opts, error) {
 	opts := Opts{
 		Name:     name,
 		parent:   nil,
@@ -62,12 +76,12 @@ func New(name string, config interface{}) *Opts {
 
 	fields, err := getFieldsFromConfig(config)
 	if err != nil {
-		panic(fmt.Sprintf("opts: %s", err))
+		return nil, err
 	}
 
 	internalFields, err := getFieldsFromConfig(&opts.internalConfig)
 	if err != nil {
-		panic(fmt.Sprintf("opts: error building internal config: %s", err))
+		return nil, errors.Wrap(err, "error building internal config")
 	}
 	fields = append(internalFields, fields...)
 
@@ -82,7 +96,7 @@ func New(name string, config interface{}) *Opts {
 		}
 	}
 
-	return &opts
+	return &opts, nil
 }
 
 func (opts *Opts) SetShortName(shortName string) *Opts {
