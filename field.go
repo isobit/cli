@@ -29,7 +29,7 @@ func getFieldsFromConfig(config interface{}) ([]field, error) {
 		return nil, errors.New("invalid config value")
 	}
 	if configVal.Kind() != reflect.Ptr {
-		return nil, fmt.Errorf("opts: config must be a struct pointer (got %s)", configVal.Type())
+		return nil, fmt.Errorf("config must be a struct pointer (got %s)", configVal.Type())
 	}
 
 	configElemVal := configVal.Elem()
@@ -37,7 +37,7 @@ func getFieldsFromConfig(config interface{}) ([]field, error) {
 		return nil, errors.New("invalid config element value")
 	}
 	if configElemVal.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("opts: config must be a struct pointer (got %s)", configVal.Type())
+		return nil, fmt.Errorf("config must be a struct pointer (got %s)", configVal.Type())
 	}
 
 	return getFields(configElemVal)
