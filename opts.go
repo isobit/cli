@@ -33,25 +33,6 @@ type internalConfig struct {
 // a pointer to a configuration struct. Default values can be specified by
 // simply setting them on the config struct.
 //
-// The parsing behavior for config fields can be controlled with the following
-// struct field tags, specified like `opts:"key1,key2=value2"`:
-//
-// "-" - exclude the field from opts (unexported fields are excluded by default)
-//
-// "required" - return a usage error if the field is not set explicitly
-//
-// "help=<text>" - help text to be printed with the flag usage
-//
-// "placeholder=<text>" - custom placeholder to use in the flag usage (the
-// default placeholder is "VALUE")
-//
-// "name=<name>" - override the flag name derived from the field name with a
-// custom one
-//
-// "short=<shortname>" - add a short flag alias for the field; must be 1 char
-//
-// "env=<varName>" - parse the value from the specified environment variable name
-// if it is not set via args
 // New returns an Opts pointer for further method chaining. If an error is
 // encountered while building the options, such as a struct field having an
 // unsupported type, New will panic. If you would like to have errors returned
@@ -99,16 +80,19 @@ func Build(name string, config interface{}) (*Opts, error) {
 	return &opts, nil
 }
 
+// SetShortName configures a short alias for the command.
 func (opts *Opts) SetShortName(shortName string) *Opts {
 	opts.ShortName = shortName
 	return opts
 }
 
+// SetHelp configures the command help string.
 func (opts *Opts) SetHelp(help string) *Opts {
 	opts.Help = help
 	return opts
 }
 
+// SetHelp configures the command short help string.
 func (opts *Opts) SetShortHelp(help string) *Opts {
 	opts.ShortHelp = help
 	return opts
@@ -125,6 +109,8 @@ func (opts *Opts) AddCommand(cmdOpts *Opts) *Opts {
 	return opts
 }
 
+// AddCommands registers multiple Opts instances as subcommands of this Opts
+// instance.
 func (opts *Opts) AddCommands(cmds []*Opts) *Opts {
 	for _, cmd := range cmds {
 		opts.AddCommand(cmd)
@@ -132,14 +118,20 @@ func (opts *Opts) AddCommands(cmds []*Opts) *Opts {
 	return opts
 }
 
-// Parse is a shortcut for calling `ParseArgs(os.Args)`
+// Parse is a convenience method for calling ParseArgs(os.Args)
 func (opts *Opts) Parse() ParsedOpts {
 	return opts.ParseArgs(os.Args)
 }
 
-// Parse parses using the passed-in args slice and OS-provided environment
+// ParseArgs parses using the passed-in args slice and OS-provided environment
 // variables and returns a ParsedOpts instance which can be used for further
 // method chaining.
+//
+// If there are args remaining after parsing this Opts' fields, subcommands
+// will be parsed recursively. The returned ParsedOpts.Runner represents the
+// command which was specified (if it has a Run method). If a Before method is
+// implemented on the Opts' config, this method will call it before recursing
+// into any subcommand parsing.
 func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 	po := ParsedOpts{Opts: opts}
 
@@ -149,22 +141,28 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 		args = args[1:]
 	}
 
+	// Parse arguments using the flagset.
 	if err := opts.flagset.Parse(args); err != nil {
 		return po.err(errors.Wrap(err, "failed to parse args"))
 	}
 
+	// Return flag.ErrHelp if help was requested.
 	if opts.internalConfig.Help {
 		return po.err(flag.ErrHelp)
 	}
 
+	// Parse environment variables.
 	if err := opts.parseEnvVars(); err != nil {
 		return po.err(errors.Wrap(err, "failed to parse environment variables"))
 	}
 
+	// Return an error if any required fields were not set at least once.
 	if err := opts.checkRequired(); err != nil {
 		return po.err(err)
 	}
 
+	// If the config implements a Before method, run it before we recursively
+	// parse subcommands.
 	if beforer, ok := opts.config.(Beforer); ok {
 		err := beforer.Before()
 		if err != nil {
@@ -172,6 +170,7 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 		}
 	}
 
+	// Handle remaining arguments, recursively parse subcommands.
 	rargs := opts.flagset.Args()
 	if len(rargs) > 0 {
 		cmdName := rargs[0]
@@ -229,9 +228,9 @@ func (po ParsedOpts) err(err error) ParsedOpts {
 	return po
 }
 
-// Run calls the Run method of the underlying Opts config or, if an error
-// occurred during parsing, prints the help text and returns that error
-// instead.
+// Run calls the Run method of the Opts config for the parsed command or, if an
+// error occurred during parsing, prints the help text and returns that error
+// instead. If help was requested, the error will flag.ErrHelp.
 func (po ParsedOpts) Run() error {
 	if po.Err != nil {
 		po.Opts.WriteHelp(errWriter)

@@ -4,6 +4,17 @@ import (
 	"strings"
 )
 
+/*
+parseStructTagInner parses the inner part of a struct tag - that is, the
+part in double quotes - into a map. The inner string is expected to be a
+comma-separated list of key-value pairs. Key-value pairs are expressed as the
+key string, followed by "=", followed by the value, which can optionally be
+enclosed in single quotes ("'"). For example:
+
+	"foo" -> {"foo": ""}
+	"foo=bar" -> {"foo": "bar"}
+	"foo='bar'" -> {"foo": "bar"}
+*/
 func parseStructTagInner(tagInner string) map[string]string {
 	ret := map[string]string{}
 

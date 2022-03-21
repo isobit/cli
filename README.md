@@ -2,6 +2,9 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/isobit/opts.svg)](https://pkg.go.dev/github.com/isobit/opts)
 
+Package opts makes it easy to create CLIs by defining options using struct
+tags. See the go doc for more info!
+
 ## Example
 
 ```go
