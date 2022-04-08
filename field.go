@@ -231,9 +231,8 @@ func (f *genericFlagValue) Set(s string) error {
 		panic("opts: genericFlagValue has no setter, this should not happen")
 	}
 	f.setCount += 1
-	err := f.setter.Set(s)
-	if err != nil {
-		return errors.Wrapf(err, "failed to set option %s from string \"%s\"", f.name, s)
+	if err := f.setter.Set(s); err != nil {
+		return err
 	}
 	return nil
 }
