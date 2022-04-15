@@ -143,48 +143,47 @@ type fieldTags struct {
 func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
 	t := fieldTags{}
 	m := parseStructTagInner(tag.Get("opts"))
+	pop := func(key string) (string, bool) {
+		val, ok := m[key]
+		if ok {
+			delete(m, key)
+		}
+		return val, ok
+	}
 
-	if _, ok := m["-"]; ok {
+	if _, ok := pop("-"); ok {
 		t.exclude = true
-		delete(m, "-")
 	}
 
-	if _, ok := m["required"]; ok {
+	if _, ok := pop("required"); ok {
 		t.required = true
-		delete(m, "required")
 	}
 
-	if name, ok := m["name"]; ok {
+	if name, ok := pop("name"); ok {
 		t.name = name
-		delete(m, "name")
 	}
 
-	if short, ok := m["short"]; ok {
+	if short, ok := pop("short"); ok {
 		if len(short) != 1 {
 			return t, fmt.Errorf("short name must be 1 letter")
 		}
 		t.short = short
-		delete(m, "short")
 	}
 
-	if placeholder, ok := m["placeholder"]; ok {
+	if placeholder, ok := pop("placeholder"); ok {
 		t.placeholder = placeholder
-		delete(m, "placeholder")
 	}
 
-	if env, ok := m["env"]; ok {
+	if env, ok := pop("env"); ok {
 		t.env = env
-		delete(m, "env")
 	}
 
-	if help, ok := m["help"]; ok {
+	if help, ok := pop("help"); ok {
 		t.help = help
-		delete(m, "help")
 	}
 
-	if defaultString, ok := m["defaultString"]; ok {
+	if defaultString, ok := pop("defaultString"); ok {
 		t.defaultString = defaultString
-		delete(m, "defaultString")
 	}
 
 	if len(m) > 0 {
