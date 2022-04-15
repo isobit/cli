@@ -15,3 +15,11 @@ func TestFieldIgnoreMinusTag(t *testing.T) {
 	require.Nil(t, err)
 	assert.Len(t, fields, 0)
 }
+
+func TestParseUnknownTagError(t *testing.T) {
+	cfg := struct {
+		Foo string `opts:"asdfasdf"`
+	}{}
+	_, err := getFieldsFromConfig(&cfg)
+	assert.NotNil(t, err)
+}

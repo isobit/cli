@@ -3,6 +3,7 @@ package opts
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/huandu/xstrings"
 )
@@ -54,10 +55,13 @@ func getFields(sv reflect.Value) ([]field, error) {
 			continue
 		}
 
-		meta := newFieldValueMeta(sf, val)
+		meta, err := newFieldValueMeta(sf, val)
+		if err != nil {
+			return nil, fmt.Errorf("problem with field %s.%s: %w", sv.Type(), sf.Name, err)
+		}
 
 		// ignore fields with the "-" tag (like json)
-		if _, ok := meta.tags["-"]; ok {
+		if meta.tags.exclude {
 			continue
 		}
 
@@ -80,35 +84,26 @@ func getFields(sv reflect.Value) ([]field, error) {
 }
 
 func getField(meta fieldValueMeta) (field, error) {
-	f := field{}
-
-	name, explicitName := meta.tags["name"]
-	if !explicitName {
+	name := meta.tags.name
+	if name == "" {
 		name = xstrings.ToKebabCase(meta.structField.Name)
 	}
-	f.Name = name
 
 	flagValue, err := getFlagValue(name, meta)
 	if err != nil {
 		return field{}, fmt.Errorf("not supported: %w", err)
 	}
-	f.flagValue = flagValue
 
-	f.Help = meta.tags["help"]
-	f.Placeholder = meta.tags["placeholder"]
-	// f.defaultString = meta.tags["default"]
-	f.EnvVarName = meta.tags["env"]
-	_, f.Required = meta.tags["required"]
-
-	if shortName, ok := meta.tags["short"]; ok {
-		if len(shortName) != 1 {
-			return f, fmt.Errorf("short name must be 1 letter")
-		}
-		f.ShortName = shortName
+	f := field{
+		flagValue:   flagValue,
+		Name:        name,
+		ShortName:   meta.tags.short,
+		Help:        meta.tags.help,
+		Placeholder: meta.tags.placeholder,
+		EnvVarName:  meta.tags.env,
+		Required:    meta.tags.required,
+		HasArg:      !flagValue.IsBoolFlag(),
 	}
-
-	f.HasArg = !flagValue.IsBoolFlag()
-
 	return f, nil
 }
 
@@ -116,17 +111,93 @@ type fieldValueMeta struct {
 	structField reflect.StructField
 	value       reflect.Value
 	embedded    bool
-	tags        map[string]string
+	tags        fieldTags
 }
 
-func newFieldValueMeta(structField reflect.StructField, value reflect.Value) fieldValueMeta {
-	tags := parseStructTagInner(structField.Tag.Get("opts"))
-	return fieldValueMeta{
+func newFieldValueMeta(structField reflect.StructField, value reflect.Value) (fieldValueMeta, error) {
+	tags, err := parseFieldTags(structField.Tag)
+	if err != nil {
+		return fieldValueMeta{}, err
+	}
+
+	meta := fieldValueMeta{
 		structField: structField,
 		value:       value,
 		embedded:    structField.Anonymous,
 		tags:        tags,
 	}
+	return meta, nil
+}
+
+type fieldTags struct {
+	exclude       bool
+	required      bool
+	name          string
+	short         string
+	placeholder   string
+	env           string
+	help          string
+	defaultString string
+}
+
+func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
+	t := fieldTags{}
+	m := parseStructTagInner(tag.Get("opts"))
+
+	if _, ok := m["-"]; ok {
+		t.exclude = true
+		delete(m, "-")
+	}
+
+	if _, ok := m["required"]; ok {
+		t.required = true
+		delete(m, "required")
+	}
+
+	if name, ok := m["name"]; ok {
+		t.name = name
+		delete(m, "name")
+	}
+
+	if short, ok := m["short"]; ok {
+		if len(short) != 1 {
+			return t, fmt.Errorf("short name must be 1 letter")
+		}
+		t.short = short
+		delete(m, "short")
+	}
+
+	if placeholder, ok := m["placeholder"]; ok {
+		t.placeholder = placeholder
+		delete(m, "placeholder")
+	}
+
+	if env, ok := m["env"]; ok {
+		t.env = env
+		delete(m, "env")
+	}
+
+	if help, ok := m["help"]; ok {
+		t.help = help
+		delete(m, "help")
+	}
+
+	if defaultString, ok := m["defaultString"]; ok {
+		t.defaultString = defaultString
+		delete(m, "defaultString")
+	}
+
+	if len(m) > 0 {
+		i := 0
+		keys := make([]string, len(m))
+		for k := range m {
+			keys[i] = k
+			i++
+		}
+		return t, fmt.Errorf("unknown tags: %s", strings.Join(keys, ", "))
+	}
+
+	return t, nil
 }
 
 func getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
@@ -159,8 +230,8 @@ func getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
 	// override with tag-provided default stringer if available, otherwise fall
 	// back on sprintfStringer if no stringer could be obtained from the
 	// interfaceables
-	if defaultString, ok := meta.tags["default"]; ok {
-		str = staticStringer(defaultString)
+	if meta.tags.defaultString != "" {
+		str = staticStringer(meta.tags.defaultString)
 	} else if str == nil {
 		str = sprintfStringer{meta.value.Interface()}
 	}
