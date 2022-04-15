@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"github.com/huandu/xstrings"
-	"github.com/pkg/errors"
 )
 
 type field struct {
@@ -26,7 +25,7 @@ func (f field) Default() string {
 func getFieldsFromConfig(config interface{}) ([]field, error) {
 	configVal := reflect.ValueOf(config)
 	if !configVal.IsValid() {
-		return nil, errors.New("invalid config value")
+		return nil, fmt.Errorf("invalid config value")
 	}
 	if configVal.Kind() != reflect.Ptr {
 		return nil, fmt.Errorf("config must be a struct pointer (got %s)", configVal.Type())
@@ -34,7 +33,7 @@ func getFieldsFromConfig(config interface{}) ([]field, error) {
 
 	configElemVal := configVal.Elem()
 	if !configElemVal.IsValid() {
-		return nil, errors.New("invalid config element value")
+		return nil, fmt.Errorf("invalid config element value")
 	}
 	if configElemVal.Kind() != reflect.Struct {
 		return nil, fmt.Errorf("config must be a struct pointer (got %s)", configVal.Type())
@@ -72,7 +71,7 @@ func getFields(sv reflect.Value) ([]field, error) {
 		} else {
 			field, err := getField(meta)
 			if err != nil {
-				return nil, errors.Wrapf(err, "problem with field %s.%s", sv.Type(), sf.Name)
+				return nil, fmt.Errorf("problem with field %s.%s: %w", sv.Type(), sf.Name, err)
 			}
 			fields = append(fields, field)
 		}
@@ -91,7 +90,7 @@ func getField(meta fieldValueMeta) (field, error) {
 
 	flagValue, err := getFlagValue(name, meta)
 	if err != nil {
-		return f, errors.Wrap(err, "not supported")
+		return field{}, fmt.Errorf("not supported: %w", err)
 	}
 	f.flagValue = flagValue
 
@@ -103,7 +102,7 @@ func getField(meta fieldValueMeta) (field, error) {
 
 	if shortName, ok := meta.tags["short"]; ok {
 		if len(shortName) != 1 {
-			return f, errors.New("short name must be 1 letter")
+			return f, fmt.Errorf("short name must be 1 letter")
 		}
 		f.ShortName = shortName
 	}
