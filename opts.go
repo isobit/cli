@@ -6,8 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-
-	"github.com/pkg/errors"
 )
 
 var errWriter io.Writer = os.Stderr
@@ -62,7 +60,7 @@ func Build(name string, config interface{}) (*Opts, error) {
 
 	internalFields, err := getFieldsFromConfig(&opts.internalConfig)
 	if err != nil {
-		return nil, errors.Wrap(err, "error building internal config")
+		return nil, fmt.Errorf("error building internal config: %w", err)
 	}
 	fields = append(internalFields, fields...)
 
@@ -143,7 +141,7 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 
 	// Parse arguments using the flagset.
 	if err := opts.flagset.Parse(args); err != nil {
-		return po.err(errors.Wrap(err, "failed to parse args"))
+		return po.err(fmt.Errorf("failed to parse args: %w", err))
 	}
 
 	// Return flag.ErrHelp if help was requested.
@@ -153,7 +151,7 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 
 	// Parse environment variables.
 	if err := opts.parseEnvVars(); err != nil {
-		return po.err(errors.Wrap(err, "failed to parse environment variables"))
+		return po.err(fmt.Errorf("failed to parse environment variables: %w", err))
 	}
 
 	// Return an error if any required fields were not set at least once.
