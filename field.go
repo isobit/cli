@@ -3,6 +3,7 @@ package opts
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/huandu/xstrings"
 )
@@ -56,10 +57,13 @@ func getFields(sv reflect.Value) ([]field, error) {
 			continue
 		}
 
-		meta := newFieldValueMeta(sf, val)
+		meta, err := newFieldValueMeta(sf, val)
+		if err != nil {
+			return nil, fmt.Errorf("problem with field %s.%s: %w", sv.Type(), sf.Name, err)
+		}
 
 		// ignore fields with the "-" tag (like json)
-		if _, ok := meta.tags["-"]; ok {
+		if meta.tags.exclude {
 			continue
 		}
 
@@ -82,39 +86,27 @@ func getFields(sv reflect.Value) ([]field, error) {
 }
 
 func getField(meta fieldValueMeta) (field, error) {
-	f := field{}
-
-	name, explicitName := meta.tags["name"]
-	if !explicitName {
+	name := meta.tags.name
+	if name == "" {
 		name = xstrings.ToKebabCase(meta.structField.Name)
 	}
-	f.Name = name
 
-	_, repeatable := meta.tags["repeatable"]
-	f.Repeatable = repeatable
-
-	flagValue, err := getFlagValue(name, meta, repeatable)
+	flagValue, err := getFlagValue(name, meta)
 	if err != nil {
 		return field{}, fmt.Errorf("not supported: %w", err)
 	}
-	f.flagValue = flagValue
 
-	f.Help = meta.tags["help"]
-	f.Placeholder = meta.tags["placeholder"]
-	// f.defaultString = meta.tags["default"]
-	f.EnvVarName = meta.tags["env"]
-	_, f.Required = meta.tags["required"]
-	_, f.Hidden = meta.tags["hidden"]
-
-	if shortName, ok := meta.tags["short"]; ok {
-		if len(shortName) != 1 {
-			return f, fmt.Errorf("short name must be 1 letter")
-		}
-		f.ShortName = shortName
+	f := field{
+		flagValue:   flagValue,
+		Name:        name,
+		ShortName:   meta.tags.short,
+		Help:        meta.tags.help,
+		Placeholder: meta.tags.placeholder,
+		EnvVarName:  meta.tags.env,
+		Required:    meta.tags.required,
+		Repeatable:  meta.tags.repeatable,
+		HasArg:      !flagValue.IsBoolFlag(),
 	}
-
-	f.HasArg = !flagValue.IsBoolFlag()
-
 	return f, nil
 }
 
@@ -122,20 +114,101 @@ type fieldValueMeta struct {
 	structField reflect.StructField
 	value       reflect.Value
 	embedded    bool
-	tags        map[string]string
+	tags        fieldTags
 }
 
-func newFieldValueMeta(structField reflect.StructField, value reflect.Value) fieldValueMeta {
-	tags := parseStructTagInner(structField.Tag.Get("opts"))
-	return fieldValueMeta{
+func newFieldValueMeta(structField reflect.StructField, value reflect.Value) (fieldValueMeta, error) {
+	tags, err := parseFieldTags(structField.Tag)
+	if err != nil {
+		return fieldValueMeta{}, err
+	}
+
+	meta := fieldValueMeta{
 		structField: structField,
 		value:       value,
 		embedded:    structField.Anonymous,
 		tags:        tags,
 	}
+	return meta, nil
 }
 
-func getFlagValue(name string, meta fieldValueMeta, repeatable bool) (*genericFlagValue, error) {
+type fieldTags struct {
+	exclude       bool
+	required      bool
+	name          string
+	short         string
+	placeholder   string
+	env           string
+	help          string
+	defaultString string
+	repeatable    bool
+}
+
+func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
+	t := fieldTags{}
+	m := parseStructTagInner(tag.Get("opts"))
+	pop := func(key string) (string, bool) {
+		val, ok := m[key]
+		if ok {
+			delete(m, key)
+		}
+		return val, ok
+	}
+
+	if _, ok := pop("-"); ok {
+		t.exclude = true
+	}
+
+	if _, ok := pop("required"); ok {
+		t.required = true
+	}
+
+	if name, ok := pop("name"); ok {
+		t.name = name
+	}
+
+	if short, ok := pop("short"); ok {
+		if len(short) != 1 {
+			return t, fmt.Errorf("short name must be 1 letter")
+		}
+		t.short = short
+	}
+
+	if placeholder, ok := pop("placeholder"); ok {
+		t.placeholder = placeholder
+	}
+
+	if env, ok := pop("env"); ok {
+		t.env = env
+	}
+
+	if help, ok := pop("help"); ok {
+		t.help = help
+	}
+
+	if defaultString, ok := pop("defaultString"); ok {
+		t.defaultString = defaultString
+	}
+
+	if _, ok := m["repeatable"]; ok {
+		t.repeatable = true
+		delete(m, "repeatable")
+	}
+
+	if len(m) > 0 {
+		i := 0
+		keys := make([]string, len(m))
+		for k := range m {
+			keys[i] = k
+			i++
+		}
+		return t, fmt.Errorf("unknown tags: %s", strings.Join(keys, ", "))
+	}
+
+	return t, nil
+}
+
+func getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
 	val := meta.value
 
 	// Can't set into a nil pointer, so allocate a zero value for the field's
@@ -153,7 +226,7 @@ func getFlagValue(name string, meta fieldValueMeta, repeatable bool) (*genericFl
 	// will be wrapped with a repeatedSliceSetter later so that values are
 	// appended to the target slice.
 	repeatableElemsArePointers := false
-	if repeatable {
+	if meta.tags.repeatable {
 		if val.Kind() != reflect.Slice {
 			return nil, fmt.Errorf("field has repeatable tag but value is not a slice type")
 		}
@@ -183,8 +256,8 @@ func getFlagValue(name string, meta fieldValueMeta, repeatable bool) (*genericFl
 	// override with tag-provided default stringer if available, otherwise fall
 	// back on sprintfStringer if no stringer could be obtained from the
 	// interfaceables
-	if defaultString, ok := meta.tags["default"]; ok {
-		str = staticStringer(defaultString)
+	if meta.tags.defaultString != "" {
+		str = staticStringer(meta.tags.defaultString)
 	} else if str == nil {
 		str = sprintfStringer{meta.value.Interface()}
 	}
@@ -208,7 +281,7 @@ func getFlagValue(name string, meta fieldValueMeta, repeatable bool) (*genericFl
 
 	// Wrap element placeholder setter with one that will append to the real
 	// value slice when the flag is passed.
-	if repeatable {
+	if meta.tags.repeatable {
 		set = repeatedSliceSetter{
 			setter:           set,
 			targetValue:      meta.value,

@@ -8,12 +8,35 @@ import (
 )
 
 func TestFieldIgnoreMinusTag(t *testing.T) {
-	cfg := struct {
+	type Cfg struct {
 		Hidden string `opts:"-"`
-	}{}
-	fields, err := getFieldsFromConfig(&cfg)
+	}
+	fields, err := getFieldsFromConfig(&Cfg{})
 	require.Nil(t, err)
 	assert.Len(t, fields, 0)
+}
+
+func TestFieldUnknownTagError(t *testing.T) {
+	type Cfg struct {
+		Foo string `opts:"asdfasdf"`
+	}
+	_, err := getFieldsFromConfig(&Cfg{})
+	assert.NotNil(t, err)
+}
+
+func TestFieldEmbedded(t *testing.T) {
+	type EmbeddedCfg struct {
+		Bar string
+	}
+	type Cfg struct {
+		Foo string
+		EmbeddedCfg
+	}
+	fields, err := getFieldsFromConfig(&Cfg{})
+	require.Nil(t, err)
+	assert.Len(t, fields, 2)
+	assert.Equal(t, "foo", fields[0].Name)
+	assert.Equal(t, "bar", fields[1].Name)
 }
 
 func TestFieldRepeatable(t *testing.T) {
