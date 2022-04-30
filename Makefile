@@ -6,6 +6,7 @@ fmt:
 	go fmt ./...
 
 lint:
+	@test -z $(shell gofmt -l . | tee /dev/stderr) || { echo "files above are not go fmt"; exit 1; }
 	golangci-lint run
 
 vet:
