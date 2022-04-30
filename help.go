@@ -10,7 +10,7 @@ import (
 
 var ErrHelp = fmt.Errorf("opts: help requested")
 
-var usageTemplateString = `{{.Name}}{{if .Flags}} [OPTIONS]{{end}}{{if and .Commands (not .Command)}} <COMMAND>{{end}}`
+var usageTemplateString = `{{.Name}}{{if .Fields}} [OPTIONS]{{end}}{{if and .Commands (not .Command)}} <COMMAND>{{end}}`
 var helpTemplateString = `
 {{- if .Help -}}
 {{.Help}}
@@ -19,10 +19,10 @@ var helpTemplateString = `
 USAGE:
     {{.Usage}}
 
-{{- if .Flags}}
+{{- if .Fields}}
 
 OPTIONS:
-{{- range .Flags}}
+{{- range .Fields}}
 \t    \t
 {{- if .ShortName}}-{{.ShortName}}, {{end}}--{{.Name}}
 {{- if .HasArg}} <{{if .Placeholder}}{{.Placeholder}}{{else}}VALUE{{end}}>{{end}}\t
@@ -64,12 +64,12 @@ func (opts *Opts) usage(command string) string {
 	}
 	data := struct {
 		Name     string
-		Flags    []field
+		Fields   []field
 		Commands []*Opts
 		Command  string
 	}{
 		Name:     opts.Name,
-		Flags:    opts.fields,
+		Fields:   opts.fields,
 		Commands: commands,
 		Command:  command,
 	}
@@ -100,12 +100,12 @@ func (opts *Opts) WriteHelp(w io.Writer) {
 	data := struct {
 		Usage    string
 		Help     string
-		Flags    []field
+		Fields   []field
 		Commands []*Opts
 	}{
 		Usage:    opts.usage(""),
 		Help:     opts.Help,
-		Flags:    opts.fields, // for now all fields are flags (will impl args later)
+		Fields:   opts.fields, // for now all fields are flags (will impl args later)
 		Commands: commands,
 	}
 
