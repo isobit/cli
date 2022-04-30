@@ -144,9 +144,9 @@ func (opts *Opts) ParseArgs(args []string) ParsedOpts {
 		return po.err(fmt.Errorf("failed to parse args: %w", err))
 	}
 
-	// Return flag.ErrHelp if help was requested.
+	// Return ErrHelp if help was requested.
 	if opts.internalConfig.Help {
-		return po.err(flag.ErrHelp)
+		return po.err(ErrHelp)
 	}
 
 	// Parse environment variables.
@@ -197,7 +197,7 @@ func (opts *Opts) parseEnvVars() error {
 		}
 		if s, ok := os.LookupEnv(f.EnvVarName); ok {
 			if err := f.flagValue.Set(s); err != nil {
-				return err
+				return fmt.Errorf("error parsing %s: %w", f.EnvVarName, err)
 			}
 		}
 	}
@@ -246,7 +246,7 @@ func (po ParsedOpts) Run() error {
 func (po ParsedOpts) RunFatal() {
 	err := po.Run()
 	if err != nil {
-		if err != flag.ErrHelp {
+		if err != ErrHelp {
 			fmt.Fprintf(errWriter, "error: %s\n", err)
 		}
 		os.Exit(1)

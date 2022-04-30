@@ -8,6 +8,8 @@ import (
 	"text/template"
 )
 
+var ErrHelp = fmt.Errorf("opts: help requested")
+
 var usageTemplateString = `{{.Name}}{{if .Flags}} [OPTIONS]{{end}}{{if and .Commands (not .Command)}} <COMMAND>{{end}}`
 var helpTemplateString = `
 {{- if .Help -}}
