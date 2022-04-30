@@ -26,6 +26,7 @@ OPTIONS:
 \t    \t
 {{- if .ShortName}}-{{.ShortName}}, {{end}}--{{.Name}}
 {{- if .HasArg}} <{{if .Placeholder}}{{.Placeholder}}{{else}}VALUE{{end}}>{{end}}\t
+{{- if .EnvVarName}}  {{.EnvVarName}}{{end}}\t
 {{- if .Help}}  {{.Help}}{{end}}
 {{- if and .HasArg .Default (not .Required)}}  (default: {{.Default}}){{end}}
 {{- end}}
@@ -43,8 +44,8 @@ COMMANDS:
 {{- end}}
 
 `
-var helpTemplate *template.Template
 
+var helpTemplate *template.Template
 var usageTemplate *template.Template
 
 func init() {
