@@ -44,6 +44,7 @@ COMMANDS:
 var helpTemplate *template.Template
 
 var usageTemplate *template.Template
+var envVarTemplate *template.Template
 
 func init() {
 	helpTemplate = template.Must(
@@ -51,6 +52,9 @@ func init() {
 	)
 	usageTemplate = template.Must(
 		template.New("usage").Parse(usageTemplateString),
+	)
+	envVarTemplate = template.Must(
+		template.New("envvar").Parse(envVarTemplateString),
 	)
 }
 
@@ -132,4 +136,40 @@ func (w escapedTabWriter) Write(p []byte) (int, error) {
 
 func (w escapedTabWriter) Flush() error {
 	return w.tabWriter.Flush()
+}
+
+func (opts *Opts) WriteEnvVarHelp(w io.Writer) {
+	// io.WriteString(w, "ENVIRONMENT VARIABLES:\n")
+	opts.writeEnvVarHelp("", w)
+}
+
+var envVarTemplateString = `#{{.Name}}
+{{- range .Fields}}
+{{- if .EnvVarName}}
+{{.EnvVarName}}\t
+{{- if .Help}}  {{.Help}}{{end}}\t
+{{- end}}
+{{- end}}
+
+`
+func (opts *Opts) writeEnvVarHelp(prefix string, w io.Writer) {
+	name := prefix + " " + opts.Name
+	data := struct {
+		Name string
+		Fields []field
+	}{
+		Name: name,
+		Fields: opts.fields,
+	}
+
+	tw := newEscapedTabWriter(w)
+	err := envVarTemplate.Execute(tw, data)
+	if err != nil {
+		panic(fmt.Sprintf("opts: error executing help template: %s", err))
+	}
+	tw.Flush()
+
+	for _, cmd := range opts.commands {
+		cmd.writeEnvVarHelp(name, w)
+	}
 }
