@@ -15,6 +15,7 @@ type field struct {
 	Required    bool
 	EnvVarName  string
 	HasArg      bool
+	Hidden      bool
 	flagValue   *genericFlagValue
 }
 
@@ -99,6 +100,7 @@ func getField(meta fieldValueMeta) (field, error) {
 	// f.defaultString = meta.tags["default"]
 	f.EnvVarName = meta.tags["env"]
 	_, f.Required = meta.tags["required"]
+	_, f.Hidden = meta.tags["hidden"]
 
 	if shortName, ok := meta.tags["short"]; ok {
 		if len(shortName) != 1 {

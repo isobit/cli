@@ -22,7 +22,7 @@ USAGE:
 {{- if .Fields}}
 
 OPTIONS:
-{{- range .Fields}}
+{{- range .Fields}}{{if not .Hidden}}
 \t    \t
 {{- if .ShortName}}-{{.ShortName}}, {{end}}--{{.Name}}
 {{- if .HasArg}} <{{if .Placeholder}}{{.Placeholder}}{{else}}VALUE{{end}}>{{end}}\t
@@ -31,7 +31,7 @@ OPTIONS:
 {{- if and .HasArg .Default (not .Required)}}  (default: {{.Default}}){{end}}
 {{- end}}
 
-{{- end}}
+{{- end}}{{end}}
 
 {{- if .Commands}}
 
