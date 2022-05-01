@@ -193,3 +193,11 @@ func TestOptsShortName(t *testing.T) {
 		})
 	assert.Nil(t, po.Err)
 }
+
+func TestOptsErrHelp(t *testing.T) {
+	po := New("test", &struct{}{}).
+		ParseArgs([]string{
+			"test", "--help",
+		})
+	assert.Equal(t, po.Err, ErrHelp)
+}
