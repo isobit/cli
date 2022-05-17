@@ -28,7 +28,7 @@ OPTIONS:
 {{- if .HasArg}} <{{if .Placeholder}}{{.Placeholder}}{{else}}VALUE{{end}}>{{end}}\t
 {{- if .EnvVarName}}  {{.EnvVarName}}{{end}}\t
 {{- if .Help}}  {{.Help}}{{end}}
-{{- if and .HasArg .Default (not .Required)}}  (default: {{.Default}}){{end}}
+{{- if and .HasArg }}{{if and .Default (not .Required)}}  (default: {{.Default}}){{else if .Required}}  (required){{end}}{{end}}
 {{- end}}
 
 {{- end}}{{end}}
