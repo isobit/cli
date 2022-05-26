@@ -48,6 +48,7 @@ func TestOptsKitchenSink(t *testing.T) {
 		Time              time.Time
 		Duration          time.Duration
 		hidden            int
+		RepeatedString    []string `opts:"repeatable"`
 	}
 	type Subcommand struct {
 		Message string
@@ -72,6 +73,7 @@ func TestOptsKitchenSink(t *testing.T) {
 			"--int64-pointer", "123",
 			"--time", "2022-02-22T22:22:22Z",
 			"--duration", "15m",
+			"--repeated-string", "a", "--repeated-string", "b",
 			"subcmd",
 			"--message", "Hello, world!",
 		})
@@ -97,6 +99,7 @@ func TestOptsKitchenSink(t *testing.T) {
 		Int64WithDefault:  -123,
 		Time:              timeValue,
 		Duration:          durationValue,
+		RepeatedString:    []string{"a", "b"},
 	}
 	subcmdExpected := &Subcommand{
 		Message: "Hello, world!",

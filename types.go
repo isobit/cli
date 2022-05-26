@@ -32,6 +32,8 @@ func tryGetSetter(i interface{}) setter {
 	}
 }
 
+// string
+
 type stringSetter struct {
 	v *string
 }
@@ -41,6 +43,8 @@ func (ss stringSetter) Set(s string) error {
 	return nil
 }
 
+// TextUnmarshaler
+
 type textSetter struct {
 	encoding.TextUnmarshaler
 }
@@ -49,6 +53,8 @@ func (ts textSetter) Set(s string) error {
 	return ts.UnmarshalText([]byte(s))
 }
 
+// BinaryUnmarshaler
+
 type binarySetter struct {
 	encoding.BinaryUnmarshaler
 }
@@ -56,6 +62,8 @@ type binarySetter struct {
 func (bs binarySetter) Set(s string) error {
 	return bs.UnmarshalBinary([]byte(s))
 }
+
+// Primitives (scanf)
 
 type scanfSetter struct {
 	v interface{}
@@ -70,6 +78,8 @@ func (ss scanfSetter) Set(s string) error {
 	}
 	return nil
 }
+
+// time.Duration
 
 type durationSetter struct {
 	duration *time.Duration

@@ -15,6 +15,7 @@ type field struct {
 	Required    bool
 	EnvVarName  string
 	HasArg      bool
+	Repeatable  bool
 	Hidden      bool
 	flagValue   *genericFlagValue
 }
@@ -89,7 +90,10 @@ func getField(meta fieldValueMeta) (field, error) {
 	}
 	f.Name = name
 
-	flagValue, err := getFlagValue(name, meta)
+	_, repeatable := meta.tags["repeatable"]
+	f.Repeatable = repeatable
+
+	flagValue, err := getFlagValue(name, meta, repeatable)
 	if err != nil {
 		return field{}, fmt.Errorf("not supported: %w", err)
 	}
@@ -131,8 +135,22 @@ func newFieldValueMeta(structField reflect.StructField, value reflect.Value) fie
 	}
 }
 
-func getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
+func getFlagValue(name string, meta fieldValueMeta, repeatable bool) (*genericFlagValue, error) {
 	val := meta.value
+
+	repeatableElemsArePointers := false
+	if repeatable {
+		if val.Kind() != reflect.Slice {
+			return nil, fmt.Errorf("field has repeatable tag but value is not a slice")
+		}
+		valTypeElem := val.Type().Elem()
+		if valTypeElem.Kind() == reflect.Ptr {
+			repeatableElemsArePointers = true
+			val = reflect.New(valTypeElem.Elem())
+		} else {
+			val = reflect.New(valTypeElem)
+		}
+	}
 
 	// Can't set into a nil pointer, so allocate a zero value for the field's
 	// type to get a placeholder value to use with getters/stringers. Once
@@ -140,7 +158,7 @@ func getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
 	// actual pointer isn't set unless a flag is passed.
 	isNilPointerSetter := false
 	if val.Kind() == reflect.Ptr && val.IsZero() {
-		val = reflect.New(meta.value.Type().Elem())
+		val = reflect.New(val.Type().Elem())
 		isNilPointerSetter = true
 	}
 
@@ -178,9 +196,20 @@ func getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
 	// real pointer to the placeholder if the flag is passed.
 	if isNilPointerSetter {
 		set = pointerSetter{
-			setter:      set,
-			targetValue: meta.value,
-			newValue:    val,
+			setter:           set,
+			targetValue:      meta.value,
+			placeholderValue: val,
+		}
+	}
+
+	// Wrap element placeholder setter with one that will append to the real
+	// value slice when the flag is passed.
+	if repeatable {
+		set = repeatedSliceSetter{
+			setter:           set,
+			targetValue:      meta.value,
+			placeholderValue: val,
+			elemsArePointers: repeatableElemsArePointers,
 		}
 	}
 
@@ -197,20 +226,44 @@ type setter interface {
 }
 
 type pointerSetter struct {
-	setter
-	targetValue reflect.Value
-	newValue    reflect.Value
+	setter           setter
+	targetValue      reflect.Value
+	placeholderValue reflect.Value
 }
 
 func (ps pointerSetter) Set(s string) error {
 	// Try to set the placeholder.
-	err := ps.setter.Set(s)
-	if err != nil {
+	if err := ps.setter.Set(s); err != nil {
 		return err
 	}
 
 	// Set the target pointer to the placeholder pointer.
-	ps.targetValue.Set(ps.newValue)
+	ps.targetValue.Set(ps.placeholderValue)
+
+	return nil
+}
+
+type repeatedSliceSetter struct {
+	setter           setter
+	targetValue      reflect.Value
+	placeholderValue reflect.Value
+	elemsArePointers bool
+}
+
+func (rss repeatedSliceSetter) Set(s string) error {
+	// Try to set the placeholder.
+	if err := rss.setter.Set(s); err != nil {
+		return err
+	}
+
+	// Append the placeholder to the target slice.
+	newElem := rss.placeholderValue.Elem()
+	if rss.elemsArePointers {
+		tmp := reflect.New(newElem.Type())
+		tmp.Elem().Set(newElem)
+		newElem = tmp
+	}
+	rss.targetValue.Set(reflect.Append(rss.targetValue, newElem))
 
 	return nil
 }
