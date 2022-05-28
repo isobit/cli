@@ -2,8 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/isobit/opts.svg)](https://pkg.go.dev/github.com/isobit/opts)
 
-Package opts makes it easy to create CLIs by defining options using struct
-tags. See the go doc for more info!
+Package opts makes it easy to create CLIs by defining options using struct tags.
 
 ## Example
 
@@ -44,12 +43,89 @@ USAGE:
     greet [OPTIONS]
 
 OPTIONS:
-    -h, --help          show usage help
-    --excited           use exclamation point
-    --greeting <VALUE>  the greeting to use  (default: Hey)
-    -n, --name <VALUE>  your name
+    -h, --help                    show usage help
+    --excited                     when true, use exclamation point
+    --greeting <VALUE>  GREETING  the greeting to use  (default: Hey)
+    -n, --name <VALUE>            your name  (required)
 
-error: flag: help requested
 $ GREETING="Hello" greet -n world --excited
 Hello, world!
+```
+
+## Struct Tags
+
+The parsing behavior for config fields can be controlled by adding a struct tag
+that opts understands. Opts struct tags look like `opts:"key1,key2=value,key3='blah'"`; for example:
+
+```go
+struct Example {
+	Foo string `opts:"required,placeholder=quux,short=f,env=FOO,help='hello, world'"`
+}
+```
+
+| Tag           | Value | Description                                                                                    |
+| -             | -     | -                                                                                              |
+| `-`           | No    | Ignore field (similar to `encoding/json`)                                                      |
+| `required`    | No    | Error if the field is not set at least once                                                    |
+| `help`        | Yes   | Custom help text                                                                               |
+| `placeholder` | Yes   | Custom help text                                                                               |
+| `name`        | Yes   | Explicit flag name (by default names are derived from the struct field name)                   |
+| `short`       | Yes   | Single character short name alias                                                              |
+| `env`         | Yes   | Environment variable to use as a default value                                                 |
+| `repeatable`  | No    | Allow flag to be specified many times (value must be a slice type, each flag will be appended) |
+
+Tags are parsed according to this ABNF:
+
+	tags = "opts:" DQUOTE *(tag ",") tag DQUOTE
+	tag = key [ "=" value ]
+	key = *<anything except "=">
+	value = *<anything except ","> / "'" *<anything except "'"> "'"
+
+## Field Types and Flag Parsing
+
+Primitive types (e.g. `int` and `string`), and pointers to primitive types
+(e.g. `*int` and `*string`) are handled natively by opts. In the case of
+pointers, if the default value is a nil pointer, and a value is passed, opts
+will construct a new value of the inner type and set the struct field to be a
+pointer to the newly constructed value.
+
+There is no special parsing for string fields, they are set directly from input.
+
+The following primitives are parsed by `fmt.Sscanf` using the `%v` directive:
+
+- `bool`
+- `int`, `int8`, `int16`, `int32`, `int64`
+- `uint8`, `uint16`, `uint32`, `uint64`
+- `float32`, `float64`
+
+Additionally, `time.Duration` fields are automatically parsed using
+`time.ParseDuration`.
+
+All other types are parsed using the first method below that is implemented
+with the type itself or a pointer to the type as the receiver:
+
+- `Set(s string) error` (similar to `flag.Value`)
+- `UnmarshalText(text []byte) error` (`encoding.TextUnmarshaler`)
+- `UnmarshalBinary(data []byte) error` (`encoding.BinaryUnmarshaler`)
+
+Many standard library types already implement one of these methods. For
+example, time.Time implements `encoding.TextUnmarshaler` for parsing RFC 3339
+timestamps.
+
+Custom types can be used so long as they implement one of the above methods.
+Here is an example which parses a string slice from a comma-delimited flag
+value string:
+
+```go
+type App struct {
+	Foos Foos
+}
+
+type Foos []string
+
+func (foos *Foos) UnmarshalText(text []byte) error {
+	s := string(text)
+	*foos = append(*foos, strings.Split(s, ",")...)
+	return nil
+}
 ```
