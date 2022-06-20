@@ -1,4 +1,4 @@
-package opts
+package cli
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"text/template"
 )
 
-var ErrHelp = fmt.Errorf("opts: help requested")
+var ErrHelp = fmt.Errorf("cli: help requested")
 
 var usageTemplateString = `{{.Name}}{{if .Fields}} [OPTIONS]{{end}}{{if and .Commands (not .Command)}} <COMMAND>{{end}}`
 var helpTemplateString = `
@@ -57,62 +57,62 @@ func init() {
 	)
 }
 
-func (opts *Opts) usage(command string) string {
-	commands := []*Opts{}
-	for _, cmd := range opts.commands {
+func (cmd *Command) usage(command string) string {
+	commands := []*Command{}
+	for _, cmd := range cmd.commands {
 		commands = append(commands, cmd)
 	}
 	data := struct {
 		Name     string
 		Fields   []field
-		Commands []*Opts
+		Commands []*Command
 		Command  string
 	}{
-		Name:     opts.Name,
-		Fields:   opts.fields,
+		Name:     cmd.Name,
+		Fields:   cmd.fields,
 		Commands: commands,
 		Command:  command,
 	}
 
 	sb := strings.Builder{}
-	if opts.parent != nil {
-		sb.WriteString(opts.parent.usage(opts.Name))
+	if cmd.parent != nil {
+		sb.WriteString(cmd.parent.usage(cmd.Name))
 		sb.WriteString(" ")
 	}
 	err := usageTemplate.Execute(&sb, data)
 	if err != nil {
-		panic(fmt.Sprintf("opts: error executing usage template: %s", err))
+		panic(fmt.Sprintf("cli: error executing usage template: %s", err))
 	}
 	return sb.String()
 }
 
-func (opts *Opts) HelpString() string {
+func (cmd *Command) HelpString() string {
 	sb := strings.Builder{}
-	opts.WriteHelp(&sb)
+	cmd.WriteHelp(&sb)
 	return sb.String()
 }
 
-func (opts *Opts) WriteHelp(w io.Writer) {
-	commands := []*Opts{}
-	for _, cmd := range opts.commands {
+func (cmd *Command) WriteHelp(w io.Writer) {
+	commands := []*Command{}
+	for _, cmd := range cmd.commands {
 		commands = append(commands, cmd)
 	}
 	data := struct {
 		Usage    string
 		Help     string
 		Fields   []field
-		Commands []*Opts
+		Commands []*Command
 	}{
-		Usage:    opts.usage(""),
-		Help:     opts.Help,
-		Fields:   opts.fields, // for now all fields are flags (will impl args later)
+		Usage:    cmd.usage(""),
+		Help:     cmd.Help,
+		Fields:   cmd.fields, // for now all fields are flags (will impl args later)
 		Commands: commands,
 	}
 
 	tw := newEscapedTabWriter(w)
 	err := helpTemplate.Execute(tw, data)
 	if err != nil {
-		panic(fmt.Sprintf("opts: error executing help template: %s", err))
+		panic(fmt.Sprintf("cli: error executing help template: %s", err))
 	}
 	tw.Flush()
 }

@@ -1,8 +1,9 @@
-# opts
+# cli
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/isobit/opts.svg)](https://pkg.go.dev/github.com/isobit/opts)
+[![Go Reference](https://pkg.go.dev/badge/github.com/isobit/cli.svg)](https://pkg.go.dev/github.com/isobit/cli)
 
-Package opts makes it easy to create CLIs by defining options using struct tags.
+Package `cli` makes it easy to create CLIs by defining options using struct
+tags.
 
 ## Example
 
@@ -12,13 +13,13 @@ package main
 import (
 	"fmt"
 
-	"github.com/isobit/opts"
+	"github.com/isobit/cli"
 )
 
 type App struct {
-	Excited  bool   `opts:"help='when true, use exclamation point'"`
-	Greeting string `opts:"env=GREETING,help=the greeting to use"`
-	Name     string `opts:"required,short=n,help=your name"`
+	Excited  bool   `cli:"help='when true, use exclamation point'"`
+	Greeting string `cli:"env=GREETING,help=the greeting to use"`
+	Name     string `cli:"required,short=n,help=your name"`
 }
 
 func (app *App) Run() error {
@@ -31,7 +32,7 @@ func (app *App) Run() error {
 }
 
 func main() {
-	opts.New("greet", &App{Greeting: "Hey"}).
+	cli.New("greet", &App{Greeting: "Hey"}).
 		Parse().
 		RunFatal()
 }
@@ -55,11 +56,12 @@ Hello, world!
 ## Struct Tags
 
 The parsing behavior for config fields can be controlled by adding a struct tag
-that opts understands. Opts struct tags look like `opts:"key1,key2=value,key3='blah'"`; for example:
+that `cli` understands. Command struct tags look like
+`cli:"key1,key2=value,key3='blah'"`; for example:
 
 ```go
 struct Example {
-	Foo string `opts:"required,placeholder=quux,short=f,env=FOO,help='hello, world'"`
+	Foo string `cli:"required,placeholder=quux,short=f,env=FOO,help='hello, world'"`
 }
 ```
 
@@ -76,7 +78,7 @@ struct Example {
 
 Tags are parsed according to this ABNF:
 
-	tags = "opts:" DQUOTE *(tag ",") tag DQUOTE
+	tags = "cli:" DQUOTE *(tag ",") tag DQUOTE
 	tag = key [ "=" value ]
 	key = *<anything except "=">
 	value = *<anything except ","> / "'" *<anything except "'"> "'"
@@ -84,8 +86,8 @@ Tags are parsed according to this ABNF:
 ## Field Types and Flag Parsing
 
 Primitive types (e.g. `int` and `string`), and pointers to primitive types
-(e.g. `*int` and `*string`) are handled natively by opts. In the case of
-pointers, if the default value is a nil pointer, and a value is passed, opts
+(e.g. `*int` and `*string`) are handled natively by `cli`. In the case of
+pointers, if the default value is a nil pointer, and a value is passed, `cli`
 will construct a new value of the inner type and set the struct field to be a
 pointer to the newly constructed value.
 

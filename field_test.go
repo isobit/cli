@@ -1,4 +1,4 @@
-package opts
+package cli
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 
 func TestFieldIgnoreMinusTag(t *testing.T) {
 	type Cfg struct {
-		Hidden string `opts:"-"`
+		Hidden string `cli:"-"`
 	}
 	fields, err := getFieldsFromConfig(&Cfg{})
 	require.Nil(t, err)
@@ -18,7 +18,7 @@ func TestFieldIgnoreMinusTag(t *testing.T) {
 
 func TestFieldUnknownTagError(t *testing.T) {
 	type Cfg struct {
-		Foo string `opts:"asdfasdf"`
+		Foo string `cli:"asdfasdf"`
 	}
 	_, err := getFieldsFromConfig(&Cfg{})
 	assert.NotNil(t, err)
@@ -52,7 +52,7 @@ func TestFieldRepeatable(t *testing.T) {
 	}
 	t.Run("[]string", func(t *testing.T) {
 		cfg := struct {
-			Vars []string `opts:"repeatable,short=v"`
+			Vars []string `cli:"repeatable,short=v"`
 		}{}
 		set := getFieldSet(t, &cfg)
 		set("aaa")
@@ -62,7 +62,7 @@ func TestFieldRepeatable(t *testing.T) {
 	})
 	t.Run("[]*string", func(t *testing.T) {
 		cfg := struct {
-			Vars []*string `opts:"repeatable,short=v"`
+			Vars []*string `cli:"repeatable,short=v"`
 		}{}
 		set := getFieldSet(t, &cfg)
 		set("aaa")
@@ -73,7 +73,7 @@ func TestFieldRepeatable(t *testing.T) {
 	})
 	t.Run("[]int", func(t *testing.T) {
 		cfg := struct {
-			Vars []int `opts:"repeatable,short=v"`
+			Vars []int `cli:"repeatable,short=v"`
 		}{}
 		set := getFieldSet(t, &cfg)
 		set("1")
@@ -83,7 +83,7 @@ func TestFieldRepeatable(t *testing.T) {
 	})
 	t.Run("[]*int", func(t *testing.T) {
 		cfg := struct {
-			Vars []*int `opts:"repeatable,short=v"`
+			Vars []*int `cli:"repeatable,short=v"`
 		}{}
 		set := getFieldSet(t, &cfg)
 		set("1")

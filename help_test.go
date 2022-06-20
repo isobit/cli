@@ -1,4 +1,4 @@
-package opts
+package cli
 
 import (
 	"strings"
@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestOptsWritesHelp(t *testing.T) {
+func TestCLIWritesHelp(t *testing.T) {
 	oldErrWriter := errWriter
 	defer func() {
 		errWriter = oldErrWriter

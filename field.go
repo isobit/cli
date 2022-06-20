@@ -1,4 +1,4 @@
-package opts
+package cli
 
 import (
 	"fmt"
@@ -146,7 +146,7 @@ type fieldTags struct {
 
 func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
 	t := fieldTags{}
-	m := parseStructTagInner(tag.Get("opts"))
+	m := parseStructTagInner(tag.Get("cli"))
 	pop := func(key string) (string, bool) {
 		val, ok := m[key]
 		if ok {
@@ -359,7 +359,7 @@ type genericFlagValue struct {
 
 func (f *genericFlagValue) Set(s string) error {
 	if f.setter == nil {
-		panic("opts: genericFlagValue has no setter, this should not happen")
+		panic("cli: genericFlagValue has no setter, this should not happen")
 	}
 	f.setCount += 1
 	if err := f.setter.Set(s); err != nil {

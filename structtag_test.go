@@ -1,4 +1,4 @@
-package opts
+package cli
 
 import (
 	"github.com/stretchr/testify/assert"

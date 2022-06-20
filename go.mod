@@ -1,4 +1,4 @@
-module github.com/isobit/opts
+module github.com/isobit/cli
 
 go 1.17
 

@@ -1,4 +1,4 @@
-package opts
+package cli
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOptsBasic(t *testing.T) {
+func TestCLIBasic(t *testing.T) {
 	type App struct {
 		Bool   bool
 		String string
@@ -33,7 +33,7 @@ func TestOptsBasic(t *testing.T) {
 	assert.Equal(t, expected, app)
 }
 
-func TestOptsKitchenSink(t *testing.T) {
+func TestCLIKitchenSink(t *testing.T) {
 	type App struct {
 		Bool              bool
 		String            string
@@ -41,14 +41,14 @@ func TestOptsKitchenSink(t *testing.T) {
 		StringPointer     *string
 		StringZeroValue   string
 		StringWithDefault string
-		StringWithName    string `opts:"name=blah"`
-		StringWithShort   string `opts:"short=s"`
+		StringWithName    string `cli:"name=blah"`
+		StringWithShort   string `cli:"short=s"`
 		Int64Pointer      *int64
 		Int64WithDefault  int64
 		Time              time.Time
 		Duration          time.Duration
 		hidden            int
-		RepeatedString    []string `opts:"repeatable"`
+		RepeatedString    []string `cli:"repeatable"`
 	}
 	type Subcommand struct {
 		Message string
@@ -108,9 +108,9 @@ func TestOptsKitchenSink(t *testing.T) {
 	assert.Equal(t, subcmdExpected, subcmd)
 }
 
-func TestOptsRequired(t *testing.T) {
+func TestCLIRequired(t *testing.T) {
 	type App struct {
-		Foo string `opts:"required"`
+		Foo string `cli:"required"`
 	}
 	app := &App{}
 
@@ -121,25 +121,25 @@ func TestOptsRequired(t *testing.T) {
 	assert.NotNil(t, po.Err)
 }
 
-type optsRunTestApp struct {
+type cliRunTestApp struct {
 	Punctuation string
 	User        string
 	fmtString   string
 	message     string
 }
 
-func (app *optsRunTestApp) Before() error {
+func (app *cliRunTestApp) Before() error {
 	app.fmtString = "Hello, %s" + app.Punctuation
 	return nil
 }
 
-func (app *optsRunTestApp) Run() error {
+func (app *cliRunTestApp) Run() error {
 	app.message = fmt.Sprintf(app.fmtString, app.User)
 	return nil
 }
 
-func TestOptsRun(t *testing.T) {
-	app := &optsRunTestApp{}
+func TestCLIRun(t *testing.T) {
+	app := &cliRunTestApp{}
 
 	po := New("test", app).
 		ParseArgs([]string{
@@ -155,9 +155,9 @@ func TestOptsRun(t *testing.T) {
 	assert.Equal(t, "Hello, foo!", app.message)
 }
 
-func TestOptsEnvVar(t *testing.T) {
+func TestCLIEnvVar(t *testing.T) {
 	type App struct {
-		Foo string `opts:"env=FOO"`
+		Foo string `cli:"env=FOO"`
 	}
 	app := &App{}
 
@@ -170,9 +170,9 @@ func TestOptsEnvVar(t *testing.T) {
 	assert.Equal(t, "quux", app.Foo)
 }
 
-func TestOptsEnvVarPrecedence(t *testing.T) {
+func TestCLIEnvVarPrecedence(t *testing.T) {
 	type App struct {
-		Foo string `opts:"env=FOO"`
+		Foo string `cli:"env=FOO"`
 	}
 	app := &App{}
 
@@ -185,7 +185,7 @@ func TestOptsEnvVarPrecedence(t *testing.T) {
 	assert.Equal(t, "override", app.Foo)
 }
 
-func TestOptsShortName(t *testing.T) {
+func TestCLIShortName(t *testing.T) {
 	type App struct{}
 	type Subcmd struct{}
 
@@ -197,7 +197,7 @@ func TestOptsShortName(t *testing.T) {
 	assert.Nil(t, po.Err)
 }
 
-func TestOptsErrHelp(t *testing.T) {
+func TestCLIErrHelp(t *testing.T) {
 	po := New("test", &struct{}{}).
 		ParseArgs([]string{
 			"test", "--help",
