@@ -10,14 +10,13 @@ import (
 
 var ErrHelp = fmt.Errorf("cli: help requested")
 
-var usageTemplateString = `{{.Name}}{{if .Fields}} [OPTIONS]{{end}}{{if and .Commands (not .Command)}} <COMMAND>{{end}}`
 var helpTemplateString = `
 {{- if .Help -}}
 {{.Help}}
 
 {{end -}}
 USAGE:
-    {{.Usage}}
+    {{.FullName}}{{if .Fields}} [OPTIONS]{{end}}{{if .Commands}} <COMMAND>{{end}}
 
 {{- if .Fields}}
 
@@ -46,43 +45,20 @@ COMMANDS:
 `
 
 var helpTemplate *template.Template
-var usageTemplate *template.Template
 
 func init() {
 	helpTemplate = template.Must(
 		template.New("help").Parse(helpTemplateString),
 	)
-	usageTemplate = template.Must(
-		template.New("usage").Parse(usageTemplateString),
-	)
 }
 
-func (cmd *Command) usage(command string) string {
-	commands := []*Command{}
-	for _, cmd := range cmd.commands {
-		commands = append(commands, cmd)
-	}
-	data := struct {
-		Name     string
-		Fields   []field
-		Commands []*Command
-		Command  string
-	}{
-		Name:     cmd.Name,
-		Fields:   cmd.fields,
-		Commands: commands,
-		Command:  command,
-	}
-
+func (cmd *Command) fullName() string {
 	sb := strings.Builder{}
 	if cmd.parent != nil {
-		sb.WriteString(cmd.parent.usage(cmd.Name))
+		sb.WriteString(cmd.parent.fullName())
 		sb.WriteString(" ")
 	}
-	err := usageTemplate.Execute(&sb, data)
-	if err != nil {
-		panic(fmt.Sprintf("cli: error executing usage template: %s", err))
-	}
+	sb.WriteString(cmd.Name)
 	return sb.String()
 }
 
@@ -98,12 +74,12 @@ func (cmd *Command) WriteHelp(w io.Writer) {
 		commands = append(commands, cmd)
 	}
 	data := struct {
-		Usage    string
+		FullName string
 		Help     string
 		Fields   []field
 		Commands []*Command
 	}{
-		Usage:    cmd.usage(""),
+		FullName: cmd.fullName(),
 		Help:     cmd.Help,
 		Fields:   cmd.fields, // for now all fields are flags (will impl args later)
 		Commands: commands,
