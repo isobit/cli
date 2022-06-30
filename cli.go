@@ -188,6 +188,18 @@ func (cmd *Command) ParseArgs(args []string) ParsedCommand {
 	return po
 }
 
+type EnvVarHandler func(string) (string, error)
+
+var envVarMiddleware EnvVarHandler
+
+// SetEnvVarMiddle configures the cli package to use the provided function as
+// middleware for handling environment variable values; whenever an environment
+// variable is read, the value will be passed to this function first, and the
+// result will be used to set the corresponding command field.
+func SetEnvVarMiddleware(h EnvVarHandler) {
+	envVarMiddleware = h
+}
+
 // parseEnvVars sets any unset field values using the environment variable
 // matching the "env" tag of the field, if present.
 func (cmd *Command) parseEnvVars() error {
@@ -195,8 +207,15 @@ func (cmd *Command) parseEnvVars() error {
 		if f.EnvVarName == "" || f.flagValue.setCount > 0 {
 			continue
 		}
-		if s, ok := os.LookupEnv(f.EnvVarName); ok {
-			if err := f.flagValue.Set(s); err != nil {
+		if val, ok := os.LookupEnv(f.EnvVarName); ok {
+			if envVarMiddleware != nil {
+				newVal, err := envVarMiddleware(val)
+				if err != nil {
+					return fmt.Errorf("error parsing %s: %w", f.EnvVarName, err)
+				}
+				val = newVal
+			}
+			if err := f.flagValue.Set(val); err != nil {
 				return fmt.Errorf("error parsing %s: %w", f.EnvVarName, err)
 			}
 		}
