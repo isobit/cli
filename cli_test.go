@@ -10,13 +10,13 @@ import (
 )
 
 func TestCLIBasic(t *testing.T) {
-	type App struct {
+	type Cmd struct {
 		Bool   bool
 		String string
 		Int    int
 	}
-	app := &App{}
-	po := New("test", app).
+	cmd := &Cmd{}
+	po := New("test", cmd).
 		ParseArgs([]string{
 			"test",
 			"--bool",
@@ -25,16 +25,16 @@ func TestCLIBasic(t *testing.T) {
 		})
 	require.Nil(t, po.Err)
 
-	expected := &App{
+	expected := &Cmd{
 		Bool:   true,
 		String: "hello",
 		Int:    42,
 	}
-	assert.Equal(t, expected, app)
+	assert.Equal(t, expected, cmd)
 }
 
 func TestCLIKitchenSink(t *testing.T) {
-	type App struct {
+	type Cmd struct {
 		Bool              bool
 		String            string
 		Int               int
@@ -54,13 +54,13 @@ func TestCLIKitchenSink(t *testing.T) {
 		Message string
 	}
 
-	app := &App{
+	cmd := &Cmd{
 		StringWithDefault: "hello",
 		Int64WithDefault:  -123,
 	}
 	subcmd := &Subcommand{}
 
-	po := New("test", app).
+	po := New("test", cmd).
 		AddCommand(New("subcmd", subcmd)).
 		ParseArgs([]string{
 			"test",
@@ -86,7 +86,7 @@ func TestCLIKitchenSink(t *testing.T) {
 	durationValue, err := time.ParseDuration("15m")
 	require.Nil(t, err)
 
-	appExpected := &App{
+	cmdExpected := &Cmd{
 		Bool:              true,
 		String:            "hello",
 		Int:               42,
@@ -104,44 +104,44 @@ func TestCLIKitchenSink(t *testing.T) {
 	subcmdExpected := &Subcommand{
 		Message: "Hello, world!",
 	}
-	assert.Equal(t, appExpected, app)
+	assert.Equal(t, cmdExpected, cmd)
 	assert.Equal(t, subcmdExpected, subcmd)
 }
 
 func TestCLIRequired(t *testing.T) {
-	type App struct {
+	type Cmd struct {
 		Foo string `cli:"required"`
 	}
-	app := &App{}
+	cmd := &Cmd{}
 
-	po := New("test", app).
+	po := New("test", cmd).
 		ParseArgs([]string{
 			"test",
 		})
 	assert.NotNil(t, po.Err)
 }
 
-type cliRunTestApp struct {
+type cliRunTestCmd struct {
 	Punctuation string
 	User        string
 	fmtString   string
 	message     string
 }
 
-func (app *cliRunTestApp) Before() error {
-	app.fmtString = "Hello, %s" + app.Punctuation
+func (cmd *cliRunTestCmd) Before() error {
+	cmd.fmtString = "Hello, %s" + cmd.Punctuation
 	return nil
 }
 
-func (app *cliRunTestApp) Run() error {
-	app.message = fmt.Sprintf(app.fmtString, app.User)
+func (cmd *cliRunTestCmd) Run() error {
+	cmd.message = fmt.Sprintf(cmd.fmtString, cmd.User)
 	return nil
 }
 
 func TestCLIRun(t *testing.T) {
-	app := &cliRunTestApp{}
+	cmd := &cliRunTestCmd{}
 
-	po := New("test", app).
+	po := New("test", cmd).
 		ParseArgs([]string{
 			"test",
 			"--user", "foo",
@@ -152,44 +152,44 @@ func TestCLIRun(t *testing.T) {
 	err := po.Run()
 	require.Nil(t, err)
 
-	assert.Equal(t, "Hello, foo!", app.message)
+	assert.Equal(t, "Hello, foo!", cmd.message)
 }
 
 func TestCLIEnvVar(t *testing.T) {
-	type App struct {
+	type Cmd struct {
 		Foo string `cli:"env=FOO"`
 	}
-	app := &App{}
+	cmd := &Cmd{}
 
 	t.Setenv("FOO", "quux")
-	po := New("test", app).
+	po := New("test", cmd).
 		ParseArgs([]string{
 			"test",
 		})
 	require.Nil(t, po.Err)
-	assert.Equal(t, "quux", app.Foo)
+	assert.Equal(t, "quux", cmd.Foo)
 }
 
 func TestCLIEnvVarPrecedence(t *testing.T) {
-	type App struct {
+	type Cmd struct {
 		Foo string `cli:"env=FOO"`
 	}
-	app := &App{}
+	cmd := &Cmd{}
 
 	t.Setenv("FOO", "quux")
-	po := New("test", app).
+	po := New("test", cmd).
 		ParseArgs([]string{
 			"test", "--foo", "override",
 		})
 	require.Nil(t, po.Err)
-	assert.Equal(t, "override", app.Foo)
+	assert.Equal(t, "override", cmd.Foo)
 }
 
 func TestCLIShortName(t *testing.T) {
-	type App struct{}
+	type Cmd struct{}
 	type Subcmd struct{}
 
-	po := New("test", &App{}).
+	po := New("test", &Cmd{}).
 		AddCommand(New("subcmd", &Subcmd{}).SetShortName("s")).
 		ParseArgs([]string{
 			"test", "s",
