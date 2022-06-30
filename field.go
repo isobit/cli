@@ -249,8 +249,12 @@ func getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
 		interfaceables = append(interfaceables, val.Addr().Interface())
 	}
 	for _, i := range interfaceables {
-		set = tryGetSetter(i)
-		str = tryGetStringer(i)
+		if set == nil {
+			set = tryGetSetter(i)
+		}
+		if str == nil {
+			str = tryGetStringer(i)
+		}
 	}
 
 	// override with tag-provided default stringer if available, otherwise fall

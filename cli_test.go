@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"net/url"
 	"testing"
 	"time"
 
@@ -203,4 +204,20 @@ func TestCLIErrHelp(t *testing.T) {
 			"test", "--help",
 		})
 	assert.Equal(t, po.Err, ErrHelp)
+}
+
+func TestCLIPointerWithDefault(t *testing.T) {
+	type Cmd struct {
+		URL *url.URL
+	}
+	cmd := &Cmd{
+		URL: &url.URL{Scheme: "https", Host: "example.com"},
+	}
+	po := New("test", cmd).ParseArgs([]string{"test"})
+	require.Nil(t, po.Err)
+
+	expected := &Cmd{
+		URL: &url.URL{Scheme: "https", Host: "example.com"},
+	}
+	assert.Equal(t, expected, cmd)
 }
