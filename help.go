@@ -11,10 +11,7 @@ import (
 var ErrHelp = fmt.Errorf("cli: help requested")
 
 var helpTemplateString = `
-{{- if .Help -}}
-{{.Help}}
-
-{{end -}}
+{{- if 0}}{{end -}}
 USAGE:
     {{.FullName}}{{if .Fields}} [OPTIONS]{{end}}{{if .Commands}} <COMMAND>{{end}}
 
@@ -36,10 +33,15 @@ OPTIONS:
 
 COMMANDS:
 {{- range .Commands}}
-\t    \t{{.Name}}\t
-{{- if .ShortHelp}}  {{.ShortHelp}}{{end}}
+\t    \t{{.Name}}\t{{ if .ShortHelp}}  {{.ShortHelp}}{{end}}
 {{- end}}
 
+{{- end}}
+
+{{- if .Help}}
+
+DESCRIPTION:
+    {{.Help}}
 {{- end}}
 
 `
@@ -81,7 +83,7 @@ func (cmd *Command) WriteHelp(w io.Writer) {
 	}{
 		FullName: cmd.fullName(),
 		Help:     cmd.Help,
-		Fields:   cmd.fields, // for now all fields are flags (will impl args later)
+		Fields:   cmd.fields,
 		Commands: commands,
 	}
 
