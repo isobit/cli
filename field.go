@@ -97,15 +97,15 @@ func getField(meta fieldValueMeta) (field, error) {
 	}
 
 	f := field{
-		flagValue:   flagValue,
 		Name:        name,
 		ShortName:   meta.tags.short,
 		Help:        meta.tags.help,
 		Placeholder: meta.tags.placeholder,
-		EnvVarName:  meta.tags.env,
 		Required:    meta.tags.required,
-		Repeatable:  meta.tags.repeatable,
+		EnvVarName:  meta.tags.env,
 		HasArg:      !flagValue.IsBoolFlag(),
+		Repeatable:  meta.tags.repeatable,
+		flagValue:   flagValue,
 	}
 	return f, nil
 }
@@ -190,9 +190,8 @@ func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
 		t.defaultString = defaultString
 	}
 
-	if _, ok := m["repeatable"]; ok {
+	if _, ok := pop("repeatable"); ok {
 		t.repeatable = true
-		delete(m, "repeatable")
 	}
 
 	if len(m) > 0 {
