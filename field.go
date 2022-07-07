@@ -105,6 +105,7 @@ func getField(meta fieldValueMeta) (field, error) {
 		EnvVarName:  meta.tags.env,
 		HasArg:      !flagValue.IsBoolFlag(),
 		Repeatable:  meta.tags.repeatable,
+		Hidden:      meta.tags.hidden,
 		flagValue:   flagValue,
 	}
 	return f, nil
@@ -142,6 +143,7 @@ type fieldTags struct {
 	help          string
 	defaultString string
 	repeatable    bool
+	hidden        bool
 }
 
 func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
@@ -192,6 +194,10 @@ func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
 
 	if _, ok := pop("repeatable"); ok {
 		t.repeatable = true
+	}
+
+	if _, ok := pop("hidden"); ok {
+		t.hidden = true
 	}
 
 	if len(m) > 0 {

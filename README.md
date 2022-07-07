@@ -75,6 +75,7 @@ struct Example {
 | `short`       | Yes   | Single character short name alias                                                              |
 | `env`         | Yes   | Environment variable to use as a default value                                                 |
 | `repeatable`  | No    | Allow flag to be specified many times (value must be a slice type, each flag will be appended) |
+| `hidden`      | No    | Don't show field in help text |
 
 Tags are parsed according to this ABNF:
 
