@@ -142,6 +142,7 @@ type fieldTags struct {
 	env           string
 	help          string
 	defaultString string
+	hideDefault   bool
 	repeatable    bool
 	hidden        bool
 }
@@ -188,8 +189,14 @@ func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
 		t.help = help
 	}
 
-	if defaultString, ok := pop("defaultString"); ok {
+	if defaultString, ok := pop("default"); ok {
 		t.defaultString = defaultString
+		if defaultString == "" {
+			t.hideDefault = true
+		}
+	}
+	if _, ok := pop("nodefault"); ok {
+		t.hideDefault = true
 	}
 
 	if _, ok := pop("repeatable"); ok {
@@ -267,6 +274,8 @@ func getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
 	// interfaceables
 	if meta.tags.defaultString != "" {
 		str = staticStringer(meta.tags.defaultString)
+	} else if meta.tags.hideDefault {
+		str = staticStringer("")
 	} else if str == nil {
 		str = sprintfStringer{meta.value.Interface()}
 	}
