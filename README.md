@@ -70,7 +70,7 @@ struct Example {
 | `-`           | No    | Ignore field (similar to `encoding/json`)                                                      |
 | `required`    | No    | Error if the field is not set at least once                                                    |
 | `help`        | Yes   | Custom help text                                                                               |
-| `placeholder` | Yes   | Custom help text                                                                               |
+| `placeholder` | Yes   | Custom value placeholder in help text                                                          |
 | `name`        | Yes   | Explicit flag name (by default names are derived from the struct field name)                   |
 | `short`       | Yes   | Single character short name alias                                                              |
 | `env`         | Yes   | Environment variable to use as a default value                                                 |
