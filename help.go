@@ -33,15 +33,15 @@ OPTIONS:
 
 COMMANDS:
 {{- range .Commands}}
-\t    \t{{.Name}}\t{{ if .ShortHelp}}  {{.ShortHelp}}{{end}}
+\t    \t{{.Name}}\t{{ if .Help}}  {{.Help}}{{end}}
 {{- end}}
 
 {{- end}}
 
-{{- if .Help}}
+{{- if .Description}}
 
 DESCRIPTION:
-    {{.Help}}
+    {{.Description}}
 {{- end}}
 
 `
@@ -60,7 +60,7 @@ func (cmd *Command) fullName() string {
 		sb.WriteString(cmd.parent.fullName())
 		sb.WriteString(" ")
 	}
-	sb.WriteString(cmd.Name)
+	sb.WriteString(cmd.name)
 	return sb.String()
 }
 
@@ -71,20 +71,26 @@ func (cmd *Command) HelpString() string {
 }
 
 func (cmd *Command) WriteHelp(w io.Writer) {
-	commands := []*Command{}
-	for _, cmd := range cmd.commands {
-		commands = append(commands, cmd)
+	type subcommandData struct {
+		Name string
+		Help string
 	}
 	data := struct {
-		FullName string
-		Help     string
-		Fields   []field
-		Commands []*Command
+		FullName    string
+		Description string
+		Fields      []field
+		Commands    []subcommandData
 	}{
-		FullName: cmd.fullName(),
-		Help:     cmd.Help,
-		Fields:   cmd.fields,
-		Commands: commands,
+		FullName:    cmd.fullName(),
+		Description: strings.ReplaceAll(strings.TrimSpace(cmd.description), "\n", "\n    "),
+		Fields:      cmd.fields,
+		Commands:    []subcommandData{},
+	}
+	for _, cmd := range cmd.commands {
+		data.Commands = append(data.Commands, subcommandData{
+			Name: cmd.name,
+			Help: cmd.help,
+		})
 	}
 
 	tw := newEscapedTabWriter(w)

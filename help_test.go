@@ -8,14 +8,12 @@ import (
 )
 
 func TestCLIWritesHelp(t *testing.T) {
-	oldErrWriter := errWriter
-	defer func() {
-		errWriter = oldErrWriter
-	}()
 	b := &strings.Builder{}
-	errWriter = b
+	ctx := Context{
+		ErrWriter: b,
+	}
 
-	err := New("test", &struct{}{}).
+	err := ctx.New("test", &struct{}{}).
 		ParseArgs([]string{
 			"test", "--help",
 		}).

@@ -186,18 +186,6 @@ func TestCLIEnvVarPrecedence(t *testing.T) {
 	assert.Equal(t, "override", cmd.Foo)
 }
 
-func TestCLIShortName(t *testing.T) {
-	type Cmd struct{}
-	type Subcmd struct{}
-
-	po := New("test", &Cmd{}).
-		AddCommand(New("subcmd", &Subcmd{}).SetShortName("s")).
-		ParseArgs([]string{
-			"test", "s",
-		})
-	assert.Nil(t, po.Err)
-}
-
 func TestCLIErrHelp(t *testing.T) {
 	po := New("test", &struct{}{}).
 		ParseArgs([]string{
