@@ -9,7 +9,7 @@ import (
 
 func TestFieldIgnoreMinusTag(t *testing.T) {
 	type Cfg struct {
-		Hidden string `cli:"-"`
+		Ignored string `cli:"-"`
 	}
 	fields, err := getFieldsFromConfig(&Cfg{})
 	require.Nil(t, err)

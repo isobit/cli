@@ -48,7 +48,7 @@ func TestCLIKitchenSink(t *testing.T) {
 		Int64WithDefault  int64
 		Time              time.Time
 		Duration          time.Duration
-		hidden            int
+		unexportedInt     int
 		RepeatedString    []string `cli:"repeatable"`
 	}
 	type Subcommand struct {
