@@ -8,16 +8,17 @@ import (
 )
 
 type Command struct {
-	context        Context
-	name           string
-	help           string
-	description    string
-	config         interface{}
-	internalConfig internalConfig
-	fields         []field
-	flagset        *flag.FlagSet
-	parent         *Command
-	commands       map[string]*Command
+	context         Context
+	name            string
+	help            string
+	description     string
+	config          interface{}
+	internalConfig  internalConfig
+	fields          []field
+	flagset         *flag.FlagSet
+	flagsetInternal *flag.FlagSet
+	parent          *Command
+	commands        map[string]*Command
 }
 
 type internalConfig struct {
@@ -38,22 +39,14 @@ func newCommand(ctx Context, name string, config interface{}) (*Command, error) 
 		return nil, fmt.Errorf("error building internal config: %w", err)
 	}
 	cmd.fields = append(cmd.fields, internalFields...)
+	cmd.flagsetInternal = newFlagSet(name, internalFields)
 
 	configFields, err := getFieldsFromConfig(config)
 	if err != nil {
 		return nil, err
 	}
 	cmd.fields = append(cmd.fields, configFields...)
-
-	flagset := flag.NewFlagSet(name, flag.ContinueOnError)
-	flagset.SetOutput(ioutil.Discard)
-	for _, f := range cmd.fields {
-		flagset.Var(f.flagValue, f.Name, f.Help)
-		if f.ShortName != "" {
-			flagset.Var(f.flagValue, f.ShortName, f.Help)
-		}
-	}
-	cmd.flagset = flagset
+	cmd.flagset = newFlagSet(name, cmd.fields)
 
 	if setuper, ok := cmd.config.(Setuper); ok {
 		setuper.SetupCommand(cmd)
@@ -97,10 +90,18 @@ func (cmd *Command) Parse() ParsedCommand {
 func (cmd *Command) ParseArgs(args []string) ParsedCommand {
 	po := ParsedCommand{Command: cmd}
 
-	// if we're the root, the first arg is the program name and should be
-	// skipped.
 	if cmd.parent == nil && len(args) > 0 {
+		// if we're the root, the first arg is the program name and should be
+		// skipped.
 		args = args[1:]
+
+		// Do a minimal recursive parsing pass (only on the internal flagset)
+		// so we can exit early with help if the help flag is passed on this
+		// command or any subcommand before proceeding.
+		helpParsedArgs := cmd.helpPass(args)
+		if helpParsedArgs.Err == ErrHelp {
+			return helpParsedArgs
+		}
 	}
 
 	// Parse arguments using the flagset.
@@ -148,6 +149,33 @@ func (cmd *Command) ParseArgs(args []string) ParsedCommand {
 		return po.err(fmt.Errorf("no command specified"))
 	}
 	po.Runner = runner
+
+	return po
+}
+
+// helpPass does a minimal recursive parsing pass using only the internal
+// flagset, so that help flags can be detected on subcommands early.
+func (cmd *Command) helpPass(args []string) ParsedCommand {
+	po := ParsedCommand{Command: cmd}
+
+	// Parse arguments using the flagset.
+	// Intentionally ignore errors since we want to ignore any non-internal
+	// flags.
+	_ = cmd.flagsetInternal.Parse(args)
+
+	// Return ErrHelp if help was requested.
+	if cmd.internalConfig.Help {
+		return po.err(ErrHelp)
+	}
+
+	// Handle remaining arguments, recursively parse subcommands.
+	rargs := cmd.flagsetInternal.Args()
+	if len(rargs) > 0 {
+		cmdName := rargs[0]
+		if cmd, ok := cmd.commands[cmdName]; ok {
+			return cmd.helpPass(rargs[1:])
+		}
+	}
 
 	return po
 }
@@ -221,4 +249,16 @@ func (po ParsedCommand) RunFatal() {
 		os.Exit(1)
 	}
 	os.Exit(0)
+}
+
+func newFlagSet(name string, fields []field) *flag.FlagSet {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	fs.SetOutput(ioutil.Discard)
+	for _, f := range fields {
+		fs.Var(f.flagValue, f.Name, f.Help)
+		if f.ShortName != "" {
+			fs.Var(f.flagValue, f.ShortName, f.Help)
+		}
+	}
+	return fs
 }
