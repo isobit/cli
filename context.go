@@ -7,10 +7,12 @@ import (
 )
 
 type LookupEnvFunc func(string) (string, bool, error)
+type SetterFunc func(interface{}) Setter
 
 type Context struct {
 	ErrWriter io.Writer
 	LookupEnv LookupEnvFunc
+	Setter    SetterFunc
 }
 
 var DefaultContext = Context{
@@ -19,6 +21,7 @@ var DefaultContext = Context{
 		val, ok := os.LookupEnv(key)
 		return val, ok, nil
 	},
+	Setter: nil,
 }
 
 // func Build2(name string, config interface{}) (*Command, error) {

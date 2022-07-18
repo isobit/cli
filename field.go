@@ -25,7 +25,7 @@ func (f field) Default() string {
 	return f.flagValue.String()
 }
 
-func getFieldsFromConfig(config interface{}) ([]field, error) {
+func (ctx *Context) getFieldsFromConfig(config interface{}) ([]field, error) {
 	configVal := reflect.ValueOf(config)
 	if !configVal.IsValid() {
 		return nil, fmt.Errorf("invalid config value")
@@ -42,11 +42,11 @@ func getFieldsFromConfig(config interface{}) ([]field, error) {
 		return nil, fmt.Errorf("config must be a struct pointer (got %s)", configVal.Type())
 	}
 
-	return getFields(configElemVal)
+	return ctx.getFields(configElemVal)
 }
 
 // sv must be a reflected struct pointer element
-func getFields(sv reflect.Value) ([]field, error) {
+func (ctx *Context) getFields(sv reflect.Value) ([]field, error) {
 	fields := []field{}
 	for i := 0; i < sv.NumField(); i++ {
 		sf := sv.Type().Field(i)
@@ -69,13 +69,13 @@ func getFields(sv reflect.Value) ([]field, error) {
 
 		if meta.embedded {
 			// embedded struct, recurse
-			embeddedFields, err := getFields(val)
+			embeddedFields, err := ctx.getFields(val)
 			if err != nil {
 				return nil, err
 			}
 			fields = append(fields, embeddedFields...)
 		} else {
-			field, err := getField(meta)
+			field, err := ctx.getField(meta)
 			if err != nil {
 				return nil, fmt.Errorf("problem with field %s.%s: %w", sv.Type(), sf.Name, err)
 			}
@@ -85,13 +85,13 @@ func getFields(sv reflect.Value) ([]field, error) {
 	return fields, nil
 }
 
-func getField(meta fieldValueMeta) (field, error) {
+func (ctx *Context) getField(meta fieldValueMeta) (field, error) {
 	name := meta.tags.name
 	if name == "" {
 		name = xstrings.ToKebabCase(meta.structField.Name)
 	}
 
-	flagValue, err := getFlagValue(name, meta)
+	flagValue, err := ctx.getFlagValue(name, meta)
 	if err != nil {
 		return field{}, fmt.Errorf("not supported: %w", err)
 	}
@@ -220,7 +220,7 @@ func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
 	return t, nil
 }
 
-func getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
+func (ctx *Context) getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
 	val := meta.value
 
 	// Can't set into a nil pointer, so allocate a zero value for the field's
@@ -251,7 +251,7 @@ func getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
 		}
 	}
 
-	var set setter
+	var set Setter
 	var str stringer
 
 	// Interfaces might be implemented using value or pointer receivers, so
@@ -261,6 +261,9 @@ func getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
 		interfaceables = append(interfaceables, val.Addr().Interface())
 	}
 	for _, i := range interfaceables {
+		if set == nil && ctx.Setter != nil {
+			set = ctx.Setter(i)
+		}
 		if set == nil {
 			set = tryGetSetter(i)
 		}
@@ -310,18 +313,18 @@ func getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
 
 	return &genericFlagValue{
 		name:       name,
-		setter:     set,
+		Setter:     set,
 		stringer:   str,
 		isBoolFlag: meta.value.Kind() == reflect.Bool,
 	}, nil
 }
 
-type setter interface {
+type Setter interface {
 	Set(s string) error
 }
 
 type pointerSetter struct {
-	setter           setter
+	setter           Setter
 	targetValue      reflect.Value
 	placeholderValue reflect.Value
 }
@@ -339,7 +342,7 @@ func (ps pointerSetter) Set(s string) error {
 }
 
 type repeatedSliceSetter struct {
-	setter           setter
+	setter           Setter
 	targetValue      reflect.Value
 	placeholderValue reflect.Value
 	elemsArePointers bool
@@ -369,18 +372,18 @@ type stringer interface {
 
 type genericFlagValue struct {
 	name string
-	setter
+	Setter
 	stringer
 	isBoolFlag bool
 	setCount   uint
 }
 
 func (f *genericFlagValue) Set(s string) error {
-	if f.setter == nil {
+	if f.Setter == nil {
 		panic("cli: genericFlagValue has no setter, this should not happen")
 	}
 	f.setCount += 1
-	if err := f.setter.Set(s); err != nil {
+	if err := f.Setter.Set(s); err != nil {
 		return err
 	}
 	return nil

@@ -34,14 +34,14 @@ func newCommand(ctx Context, name string, config interface{}) (*Command, error) 
 		commands: map[string]*Command{},
 	}
 
-	internalFields, err := getFieldsFromConfig(&cmd.internalConfig)
+	internalFields, err := ctx.getFieldsFromConfig(&cmd.internalConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error building internal config: %w", err)
 	}
 	cmd.fields = append(cmd.fields, internalFields...)
 	cmd.flagsetInternal = newFlagSet(name, internalFields)
 
-	configFields, err := getFieldsFromConfig(config)
+	configFields, err := ctx.getFieldsFromConfig(config)
 	if err != nil {
 		return nil, err
 	}

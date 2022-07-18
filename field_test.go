@@ -11,7 +11,7 @@ func TestFieldIgnoreMinusTag(t *testing.T) {
 	type Cfg struct {
 		Ignored string `cli:"-"`
 	}
-	fields, err := getFieldsFromConfig(&Cfg{})
+	fields, err := DefaultContext.getFieldsFromConfig(&Cfg{})
 	require.Nil(t, err)
 	assert.Len(t, fields, 0)
 }
@@ -20,7 +20,7 @@ func TestFieldUnknownTagError(t *testing.T) {
 	type Cfg struct {
 		Foo string `cli:"asdfasdf"`
 	}
-	_, err := getFieldsFromConfig(&Cfg{})
+	_, err := DefaultContext.getFieldsFromConfig(&Cfg{})
 	assert.NotNil(t, err)
 }
 
@@ -32,7 +32,7 @@ func TestFieldEmbedded(t *testing.T) {
 		Foo string
 		EmbeddedCfg
 	}
-	fields, err := getFieldsFromConfig(&Cfg{})
+	fields, err := DefaultContext.getFieldsFromConfig(&Cfg{})
 	require.Nil(t, err)
 	assert.Len(t, fields, 2)
 	assert.Equal(t, "foo", fields[0].Name)
@@ -41,7 +41,7 @@ func TestFieldEmbedded(t *testing.T) {
 
 func TestFieldRepeatable(t *testing.T) {
 	getFieldSet := func(t *testing.T, cfg interface{}) func(s string) {
-		fields, err := getFieldsFromConfig(cfg)
+		fields, err := DefaultContext.getFieldsFromConfig(cfg)
 		require.Nil(t, err)
 		require.Len(t, fields, 1)
 		flag := fields[0].flagValue

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,4 +54,43 @@ func TestContextEnvLookupError(t *testing.T) {
 			"test",
 		})
 	assert.NotNil(t, po.Err)
+}
+
+type testTimeSetter struct {
+	t *time.Time
+}
+
+func (ts *testTimeSetter) Set(s string) error {
+	v, err := time.Parse(time.Kitchen, s)
+	if err != nil {
+		return err
+	}
+	*ts.t = v
+	return nil
+}
+
+func TestContextSetter(t *testing.T) {
+	b := &strings.Builder{}
+	ctx := Context{
+		ErrWriter: b,
+		Setter: func(i interface{}) Setter {
+			switch v := i.(type) {
+			case *time.Time:
+				return &testTimeSetter{v}
+			default:
+				return nil
+			}
+		},
+	}
+
+	cmd := &struct {
+		Time time.Time
+	}{}
+
+	po := ctx.New("test", cmd).
+		ParseArgs([]string{
+			"test", "--time", "12:30PM",
+		})
+	require.Nil(t, po.Err)
+	assert.Equal(t, time.Time(time.Date(0, time.January, 1, 12, 30, 0, 0, time.UTC)), cmd.Time)
 }
