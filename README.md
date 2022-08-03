@@ -132,3 +132,41 @@ func (foos *Foos) UnmarshalText(text []byte) error {
 	return nil
 }
 ```
+
+## Contexts and Signal Handling
+
+Here is an example of a "sleep" program which sleeps for the specified
+duration, but can be cancelled by a SIGINT or SIGTERM:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/isobit/cli"
+)
+
+type SleepCommand struct {
+	Duration time.Duration `cli:"short=d,required"`
+}
+
+func (cmd *Sleep) Run(ctx context.Context) error {
+	fmt.Printf("sleeping for %s\n", cmd.Duration)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(cmd.Duration):
+		fmt.Println("done")
+	}
+	return nil
+}
+
+func main() {
+	cli.New("sleep", &SleepCommand{}).
+		Parse().
+		RunFatalWithSigCancel()
+}
+```

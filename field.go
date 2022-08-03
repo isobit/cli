@@ -25,7 +25,7 @@ func (f field) Default() string {
 	return f.flagValue.String()
 }
 
-func (ctx *Context) getFieldsFromConfig(config interface{}) ([]field, error) {
+func (cli *CLI) getFieldsFromConfig(config interface{}) ([]field, error) {
 	configVal := reflect.ValueOf(config)
 	if !configVal.IsValid() {
 		return nil, fmt.Errorf("invalid config value")
@@ -42,11 +42,11 @@ func (ctx *Context) getFieldsFromConfig(config interface{}) ([]field, error) {
 		return nil, fmt.Errorf("config must be a struct pointer (got %s)", configVal.Type())
 	}
 
-	return ctx.getFields(configElemVal)
+	return cli.getFields(configElemVal)
 }
 
 // sv must be a reflected struct pointer element
-func (ctx *Context) getFields(sv reflect.Value) ([]field, error) {
+func (cli *CLI) getFields(sv reflect.Value) ([]field, error) {
 	fields := []field{}
 	for i := 0; i < sv.NumField(); i++ {
 		sf := sv.Type().Field(i)
@@ -69,13 +69,13 @@ func (ctx *Context) getFields(sv reflect.Value) ([]field, error) {
 
 		if meta.embedded {
 			// embedded struct, recurse
-			embeddedFields, err := ctx.getFields(val)
+			embeddedFields, err := cli.getFields(val)
 			if err != nil {
 				return nil, err
 			}
 			fields = append(fields, embeddedFields...)
 		} else {
-			field, err := ctx.getField(meta)
+			field, err := cli.getField(meta)
 			if err != nil {
 				return nil, fmt.Errorf("problem with field %s.%s: %w", sv.Type(), sf.Name, err)
 			}
@@ -85,13 +85,13 @@ func (ctx *Context) getFields(sv reflect.Value) ([]field, error) {
 	return fields, nil
 }
 
-func (ctx *Context) getField(meta fieldValueMeta) (field, error) {
+func (cli *CLI) getField(meta fieldValueMeta) (field, error) {
 	name := meta.tags.name
 	if name == "" {
 		name = xstrings.ToKebabCase(meta.structField.Name)
 	}
 
-	flagValue, err := ctx.getFlagValue(name, meta)
+	flagValue, err := cli.getFlagValue(name, meta)
 	if err != nil {
 		return field{}, fmt.Errorf("not supported: %w", err)
 	}
@@ -220,7 +220,7 @@ func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
 	return t, nil
 }
 
-func (ctx *Context) getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
+func (cli *CLI) getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
 	val := meta.value
 
 	// Can't set into a nil pointer, so allocate a zero value for the field's
@@ -261,8 +261,8 @@ func (ctx *Context) getFlagValue(name string, meta fieldValueMeta) (*genericFlag
 		interfaceables = append(interfaceables, val.Addr().Interface())
 	}
 	for _, i := range interfaceables {
-		if set == nil && ctx.Setter != nil {
-			set = ctx.Setter(i)
+		if set == nil && cli.Setter != nil {
+			set = cli.Setter(i)
 		}
 		if set == nil {
 			set = tryGetSetter(i)

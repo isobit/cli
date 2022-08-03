@@ -9,11 +9,11 @@ import (
 
 func TestCLIWritesHelp(t *testing.T) {
 	b := &strings.Builder{}
-	ctx := Context{
+	cli := CLI{
 		ErrWriter: b,
 	}
 
-	err := ctx.New("test", &struct{}{}).
+	err := cli.New("test", &struct{}{}).
 		ParseArgs([]string{
 			"test", "--help",
 		}).

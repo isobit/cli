@@ -1,14 +1,37 @@
 package cli
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 )
 
+type Runner interface {
+	Run() error
+}
+
+type ContextRunner interface {
+	Run(context.Context) error
+}
+
+type Beforer interface {
+	Before() error
+}
+
+type Setuper interface {
+	SetupCommand(cmd *Command)
+}
+
+type ExitCoder interface {
+	ExitCode() int
+}
+
+type RunFunc func(context.Context) error
+
 type Command struct {
-	context         Context
+	cli             CLI
 	name            string
 	help            string
 	description     string
@@ -25,23 +48,23 @@ type internalConfig struct {
 	Help bool `cli:"short=h,help=show usage help"`
 }
 
-func newCommand(ctx Context, name string, config interface{}) (*Command, error) {
+func (cli CLI) Build(name string, config interface{}) (*Command, error) {
 	cmd := &Command{
-		context:  ctx,
+		cli:      cli,
 		name:     name,
 		config:   config,
 		fields:   []field{},
 		commands: map[string]*Command{},
 	}
 
-	internalFields, err := ctx.getFieldsFromConfig(&cmd.internalConfig)
+	internalFields, err := cli.getFieldsFromConfig(&cmd.internalConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error building internal config: %w", err)
 	}
 	cmd.fields = append(cmd.fields, internalFields...)
 	cmd.flagsetInternal = newFlagSet(name, internalFields)
 
-	configFields, err := ctx.getFieldsFromConfig(config)
+	configFields, err := cli.getFieldsFromConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +76,26 @@ func newCommand(ctx Context, name string, config interface{}) (*Command, error) 
 	}
 
 	return cmd, nil
+}
+
+func (cli CLI) New(name string, config interface{}) *Command {
+	cmd, err := cli.Build(name, config)
+	if err != nil {
+		panic(fmt.Sprintf("cli: %s", err))
+	}
+	return cmd
+}
+
+func newFlagSet(name string, fields []field) *flag.FlagSet {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	fs.SetOutput(ioutil.Discard)
+	for _, f := range fields {
+		fs.Var(f.flagValue, f.Name, f.Help)
+		if f.ShortName != "" {
+			fs.Var(f.flagValue, f.ShortName, f.Help)
+		}
+	}
+	return fs
 }
 
 func (cmd *Command) Help(help string) *Command {
@@ -74,21 +117,20 @@ func (cmd *Command) AddCommand(subCmd *Command) *Command {
 }
 
 // Parse is a convenience method for calling ParseArgs(os.Args)
-func (cmd *Command) Parse() ParsedCommand {
+func (cmd *Command) Parse() ParseResult {
 	return cmd.ParseArgs(os.Args)
 }
 
 // ParseArgs parses using the passed-in args slice and OS-provided environment
-// variables and returns a ParsedCommand instance which can be used for further
-// method chaining.
+// variables and returns a ParseResult which can be used for further method
+// chaining.
 //
-// If there are args remaining after parsing this Command' fields, subcommands
-// will be parsed recursively. The returned ParsedCommand.Runner represents the
-// command which was specified (if it has a Run method). If a Before method is
-// implemented on the Command' config, this method will call it before
+// If there are args remaining after parsing this Command's fields, subcommands
+// will be recursively parsed until a concrete result is returned. If a Before
+// method is implemented on the config, this method will call it before
 // recursing into any subcommand parsing.
-func (cmd *Command) ParseArgs(args []string) ParsedCommand {
-	po := ParsedCommand{Command: cmd}
+func (cmd *Command) ParseArgs(args []string) ParseResult {
+	po := ParseResult{Command: cmd}
 
 	if cmd.parent == nil && len(args) > 0 {
 		// if we're the root, the first arg is the program name and should be
@@ -144,19 +186,32 @@ func (cmd *Command) ParseArgs(args []string) ParsedCommand {
 		}
 	}
 
-	runner, isRunnable := cmd.config.(Runner)
-	if !isRunnable && len(cmd.commands) > 0 {
+	run, isRunnable := getRunFunc(cmd.config)
+	if !isRunnable && len(cmd.commands) != 0 {
 		return po.err(fmt.Errorf("no command specified"))
 	}
-	po.Runner = runner
+	po.run = run
 
 	return po
 }
 
+func getRunFunc(config interface{}) (RunFunc, bool) {
+	if r, ok := config.(Runner); ok {
+		run := func(context.Context) error {
+			return r.Run()
+		}
+		return run, true
+	}
+	if r, ok := config.(ContextRunner); ok {
+		return r.Run, true
+	}
+	return nil, false
+}
+
 // helpPass does a minimal recursive parsing pass using only the internal
 // flagset, so that help flags can be detected on subcommands early.
-func (cmd *Command) helpPass(args []string) ParsedCommand {
-	po := ParsedCommand{Command: cmd}
+func (cmd *Command) helpPass(args []string) ParseResult {
+	po := ParseResult{Command: cmd}
 
 	// Parse arguments using the flagset.
 	// Intentionally ignore errors since we want to ignore any non-internal
@@ -187,7 +242,7 @@ func (cmd *Command) parseEnvVars() error {
 		if f.EnvVarName == "" || f.flagValue.setCount > 0 {
 			continue
 		}
-		val, ok, err := cmd.context.LookupEnv(f.EnvVarName)
+		val, ok, err := cmd.cli.LookupEnv(f.EnvVarName)
 		if err != nil {
 			// TODO?
 			return err
@@ -211,54 +266,84 @@ func (cmd *Command) checkRequired() error {
 	return nil
 }
 
-type ParsedCommand struct {
+// ParseResult contains information about the results of command argument
+// parsing.
+type ParseResult struct {
 	Err     error
 	Command *Command
-	Runner  Runner
+	run     RunFunc
 }
 
-// Convenience method for returning errors wrapped as ParsedCommand.
-func (po ParsedCommand) err(err error) ParsedCommand {
+// Convenience method for returning errors wrapped as a ParsedResult.
+func (po ParseResult) err(err error) ParseResult {
 	po.Err = err
 	return po
 }
 
 // Run calls the Run method of the Command config for the parsed command or, if
 // an error occurred during parsing, prints the help text and returns that
-// error instead. If help was requested, the error will flag.ErrHelp.
-func (po ParsedCommand) Run() error {
+// error instead. If help was requested, the error will flag.ErrHelp. If the
+// underlying command Run method accepts a context, context.Background() will
+// be passed.
+func (po ParseResult) Run() error {
+	return po.RunWithContext(context.Background())
+}
+
+// RunWithContext is like Run, but it accepts an explicit context which will be
+// passed to the command's Run method, if it accepts one.
+func (po ParseResult) RunWithContext(ctx context.Context) error {
 	if po.Err != nil {
-		po.Command.WriteHelp(po.Command.context.ErrWriter)
+		po.Command.WriteHelp(po.Command.cli.ErrWriter)
 		return po.Err
 	}
-	if po.Runner == nil {
+	if po.run == nil {
 		return fmt.Errorf("no run method implemented")
 	}
-	return po.Runner.Run()
+	return po.run(ctx)
+}
+
+// RunWithSigCancel is like Run, but it automatically registers a signal
+// handler for SIGINT and SIGTERM that will cancel the context that is passed
+// to the command's Run method, if it accepts one.
+func (po ParseResult) RunWithSigCancel() error {
+	ctx, stop := ContextWithSigCancel(context.Background())
+	defer stop()
+	return po.RunWithContext(ctx)
 }
 
 // RunFatal is like Run, except it automatically handles printing out any
 // errors returned by the Run method of the underlying Command config, and
-// exits with an appropriate status (1 if error, 0 otherwise).
-func (po ParsedCommand) RunFatal() {
-	err := po.Run()
+// exits with an appropriate status code.
+//
+// If no error occurs, the exit code will be 0. If an error is returned and it
+// implements the ExitCoder interface, the result of ExitCode() will be used as
+// the exit code. If an error is returned that does not implement ExitCoder,
+// the exit code will be 1.
+func (po ParseResult) RunFatal() {
+	po.RunFatalWithContext(context.Background())
+}
+
+// RunFatalWithContext is like RunFatal, but it accepts an explicit context
+// which will be passed to the command's Run method if it accepts one.
+func (po ParseResult) RunFatalWithContext(ctx context.Context) {
+	err := po.RunWithContext(ctx)
 	if err != nil {
 		if err != ErrHelp {
-			fmt.Fprintf(po.Command.context.ErrWriter, "error: %s\n", err)
+			fmt.Fprintf(po.Command.cli.ErrWriter, "error: %s\n", err)
+		}
+		if ec, ok := err.(ExitCoder); ok {
+			os.Exit(ec.ExitCode())
 		}
 		os.Exit(1)
 	}
 	os.Exit(0)
 }
 
-func newFlagSet(name string, fields []field) *flag.FlagSet {
-	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	fs.SetOutput(ioutil.Discard)
-	for _, f := range fields {
-		fs.Var(f.flagValue, f.Name, f.Help)
-		if f.ShortName != "" {
-			fs.Var(f.flagValue, f.ShortName, f.Help)
-		}
-	}
-	return fs
+// RunFatalWithSigCancel is like RunFatal, but it automatically registers a
+// signal handler for SIGINT and SIGTERM that will cancel the context that is
+// passed to the command's Run method, if it accepts one.
+func (po ParseResult) RunFatalWithSigCancel() {
+	ctx, stop := ContextWithSigCancel(context.Background())
+	defer stop()
+	po.RunFatalWithContext(ctx)
 }

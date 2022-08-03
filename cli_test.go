@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -208,4 +209,89 @@ func TestCLIPointerWithDefault(t *testing.T) {
 		URL: &url.URL{Scheme: "https", Host: "example.com"},
 	}
 	assert.Equal(t, expected, cmd)
+}
+
+func TestCLICustomEnvLookup(t *testing.T) {
+	b := &strings.Builder{}
+	cli := CLI{
+		ErrWriter: b,
+		LookupEnv: func(key string) (string, bool, error) {
+			return "quux", true, nil
+		},
+	}
+
+	cmd := &struct {
+		Foo string `cli:"env=FOO"`
+	}{}
+	subcmd := &struct {
+		Bar string `cli:"env=BAR"`
+	}{}
+
+	po := cli.New("test", cmd).
+		AddCommand(cli.New("sub", subcmd)).
+		ParseArgs([]string{
+			"test", "sub",
+		})
+	require.Nil(t, po.Err)
+	assert.Equal(t, "quux", cmd.Foo)
+	assert.Equal(t, "quux", subcmd.Bar)
+}
+
+func TestCLIEnvLookupError(t *testing.T) {
+	b := &strings.Builder{}
+	cli := CLI{
+		ErrWriter: b,
+		LookupEnv: func(key string) (string, bool, error) {
+			return "", false, fmt.Errorf("boom")
+		},
+	}
+
+	cmd := &struct {
+		Foo string `cli:"env=FOO"`
+	}{}
+
+	po := cli.New("test", cmd).
+		ParseArgs([]string{
+			"test",
+		})
+	assert.NotNil(t, po.Err)
+}
+
+type testTimeSetter struct {
+	t *time.Time
+}
+
+func (ts *testTimeSetter) Set(s string) error {
+	v, err := time.Parse(time.Kitchen, s)
+	if err != nil {
+		return err
+	}
+	*ts.t = v
+	return nil
+}
+
+func TestCLISetter(t *testing.T) {
+	b := &strings.Builder{}
+	cli := CLI{
+		ErrWriter: b,
+		Setter: func(i interface{}) Setter {
+			switch v := i.(type) {
+			case *time.Time:
+				return &testTimeSetter{v}
+			default:
+				return nil
+			}
+		},
+	}
+
+	cmd := &struct {
+		Time time.Time
+	}{}
+
+	po := cli.New("test", cmd).
+		ParseArgs([]string{
+			"test", "--time", "12:30PM",
+		})
+	require.Nil(t, po.Err)
+	assert.Equal(t, time.Time(time.Date(0, time.January, 1, 12, 30, 0, 0, time.UTC)), cmd.Time)
 }
