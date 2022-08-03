@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 type Runner interface {
@@ -27,8 +29,6 @@ type Setuper interface {
 type ExitCoder interface {
 	ExitCode() int
 }
-
-type RunFunc func(context.Context) error
 
 type Command struct {
 	cli             CLI
@@ -186,26 +186,36 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 		}
 	}
 
-	run, isRunnable := getRunFunc(cmd.config)
-	if !isRunnable && len(cmd.commands) != 0 {
+	r.runInfo = getRunInfo(cmd.config)
+	if r.runInfo == nil && len(cmd.commands) != 0 {
 		return r.err(fmt.Errorf("no command specified"))
 	}
-	r.run = run
 
 	return r
 }
 
-func getRunFunc(config interface{}) (RunFunc, bool) {
+type runInfo struct {
+	run             func(context.Context) error
+	supportsContext bool
+}
+
+func getRunInfo(config interface{}) *runInfo {
 	if r, ok := config.(Runner); ok {
 		run := func(context.Context) error {
 			return r.Run()
 		}
-		return run, true
+		return &runInfo{
+			run:             run,
+			supportsContext: false,
+		}
 	}
 	if r, ok := config.(ContextRunner); ok {
-		return r.Run, true
+		return &runInfo{
+			run:             r.Run,
+			supportsContext: true,
+		}
 	}
-	return nil, false
+	return nil
 }
 
 // helpPass does a minimal recursive parsing pass using only the internal
@@ -271,7 +281,7 @@ func (cmd *Command) checkRequired() error {
 type ParseResult struct {
 	Err     error
 	Command *Command
-	run     RunFunc
+	runInfo *runInfo
 }
 
 // Convenience method for returning errors wrapped as a ParsedResult.
@@ -298,17 +308,17 @@ func (r ParseResult) RunWithContext(ctx context.Context) error {
 		}
 		return r.Err
 	}
-	if r.run == nil {
+	if r.runInfo == nil {
 		return fmt.Errorf("no run method implemented")
 	}
-	return r.run(ctx)
+	return r.runInfo.run(ctx)
 }
 
 // RunWithSigCancel is like Run, but it automatically registers a signal
 // handler for SIGINT and SIGTERM that will cancel the context that is passed
 // to the command's Run method, if it accepts one.
 func (r ParseResult) RunWithSigCancel() error {
-	ctx, stop := ContextWithSigCancel(context.Background())
+	ctx, stop := r.contextWithSigCancelIfSupported(context.Background())
 	defer stop()
 	return r.RunWithContext(ctx)
 }
@@ -345,7 +355,14 @@ func (r ParseResult) RunFatalWithContext(ctx context.Context) {
 // signal handler for SIGINT and SIGTERM that will cancel the context that is
 // passed to the command's Run method, if it accepts one.
 func (r ParseResult) RunFatalWithSigCancel() {
-	ctx, stop := ContextWithSigCancel(context.Background())
+	ctx, stop := r.contextWithSigCancelIfSupported(context.Background())
 	defer stop()
 	r.RunFatalWithContext(ctx)
+}
+
+func (r ParseResult) contextWithSigCancelIfSupported(ctx context.Context) (context.Context, context.CancelFunc) {
+	if r.runInfo == nil || !r.runInfo.supportsContext {
+		return ctx, func() {}
+	}
+	return signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 }
