@@ -10,7 +10,7 @@ import (
 func TestCLIWritesHelp(t *testing.T) {
 	b := &strings.Builder{}
 	cli := CLI{
-		ErrWriter: b,
+		HelpWriter: b,
 	}
 
 	err := cli.New("test", &struct{}{}).

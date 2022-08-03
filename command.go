@@ -293,7 +293,9 @@ func (r ParseResult) Run() error {
 // passed to the command's Run method, if it accepts one.
 func (r ParseResult) RunWithContext(ctx context.Context) error {
 	if r.Err != nil {
-		r.Command.WriteHelp(r.Command.cli.ErrWriter)
+		if r.Command != nil && r.Command.cli.HelpWriter != nil {
+			r.Command.WriteHelp(r.Command.cli.HelpWriter)
+		}
 		return r.Err
 	}
 	if r.run == nil {
@@ -328,7 +330,7 @@ func (r ParseResult) RunFatal() {
 func (r ParseResult) RunFatalWithContext(ctx context.Context) {
 	err := r.RunWithContext(ctx)
 	if err != nil {
-		if err != ErrHelp {
+		if err != ErrHelp && r.Command != nil && r.Command.cli.ErrWriter != nil {
 			fmt.Fprintf(r.Command.cli.ErrWriter, "error: %s\n", err)
 		}
 		if ec, ok := err.(ExitCoder); ok {

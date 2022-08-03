@@ -12,8 +12,12 @@ type SetterFunc func(interface{}) Setter
 // constructs. The top-level New and Build methods use a CLI with good defaults
 // for most cases, but custom CLI structs can be used to modify behavior.
 type CLI struct {
-	// ErrWriter is used when commands print error information (i.e. during
-	// RunFatal).
+	// HelpWriter is used to print help output when calling ParseResult.Run
+	// (and other similar methods).
+	HelpWriter io.Writer
+
+	// ErrWriter is used to print errors when calling ParseResult.Run (and
+	// other similar methods).
 	ErrWriter io.Writer
 
 	// LookupEnv is called during parsing for any fields which define an env
@@ -54,9 +58,10 @@ type CLI struct {
 }
 
 var Defaults = CLI{
-	ErrWriter: os.Stderr,
-	LookupEnv: osLookupEnv,
-	Setter:    nil,
+	HelpWriter: os.Stderr,
+	ErrWriter:  os.Stderr,
+	LookupEnv:  osLookupEnv,
+	Setter:     nil,
 }
 
 // osLookupEnv wraps os.LookupEnv as a LookupEnvFunc
