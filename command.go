@@ -41,7 +41,8 @@ type Command struct {
 	flagset         *flag.FlagSet
 	flagsetInternal *flag.FlagSet
 	parent          *Command
-	commands        map[string]*Command
+	commands        []*Command
+	commandMap      map[string]*Command
 }
 
 type internalConfig struct {
@@ -50,11 +51,12 @@ type internalConfig struct {
 
 func (cli CLI) Build(name string, config interface{}) (*Command, error) {
 	cmd := &Command{
-		cli:      cli,
-		name:     name,
-		config:   config,
-		fields:   []field{},
-		commands: map[string]*Command{},
+		cli:        cli,
+		name:       name,
+		config:     config,
+		fields:     []field{},
+		commands:   []*Command{},
+		commandMap: map[string]*Command{},
 	}
 
 	internalFields, err := cli.getFieldsFromConfig(&cmd.internalConfig)
@@ -112,7 +114,8 @@ func (cmd *Command) Description(description string) *Command {
 // instance.
 func (cmd *Command) AddCommand(subCmd *Command) *Command {
 	subCmd.parent = cmd
-	cmd.commands[subCmd.name] = subCmd
+	cmd.commands = append(cmd.commands, subCmd)
+	cmd.commandMap[subCmd.name] = subCmd
 	return cmd
 }
 
@@ -179,7 +182,7 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 	rargs := cmd.flagset.Args()
 	if len(rargs) > 0 {
 		cmdName := rargs[0]
-		if cmd, ok := cmd.commands[cmdName]; ok {
+		if cmd, ok := cmd.commandMap[cmdName]; ok {
 			return cmd.ParseArgs(rargs[1:])
 		} else {
 			return r.err(fmt.Errorf("unknown command %s", cmdName))
@@ -237,7 +240,7 @@ func (cmd *Command) helpPass(args []string) ParseResult {
 	rargs := cmd.flagsetInternal.Args()
 	if len(rargs) > 0 {
 		cmdName := rargs[0]
-		if cmd, ok := cmd.commands[cmdName]; ok {
+		if cmd, ok := cmd.commandMap[cmdName]; ok {
 			return cmd.helpPass(rargs[1:])
 		}
 	}
