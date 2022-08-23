@@ -79,6 +79,18 @@ func (ss scanfSetter) Set(s string) error {
 	return nil
 }
 
+// Increment
+
+type incrementSetter struct {
+	value *int
+}
+
+func (is incrementSetter) Set(s string) error {
+	*is.value++
+	return nil
+}
+
+
 // time.Duration
 
 type durationSetter struct {

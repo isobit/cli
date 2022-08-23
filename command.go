@@ -248,21 +248,35 @@ func (cmd *Command) helpPass(args []string) ParseResult {
 	return r
 }
 
+func (cmd *Command) ParseEnv(env Env) error {
+	for _, f := range cmd.fields {
+		if f.EnvKey == "" || f.flagValue.setCount > 0 {
+			continue
+		}
+		if val, ok := env.Lookup(f.EnvKey); ok {
+			if err := f.flagValue.Set(val); err != nil {
+				return fmt.Errorf("error parsing %s: %w", f.EnvKey, err)
+			}
+		}
+	}
+	return nil
+}
+
 // parseEnvVars sets any unset field values using the environment variable
 // matching the "env" tag of the field, if present.
 func (cmd *Command) parseEnvVars() error {
 	for _, f := range cmd.fields {
-		if f.EnvVarName == "" || f.flagValue.setCount > 0 {
+		if f.EnvKey == "" || f.flagValue.setCount > 0 {
 			continue
 		}
-		val, ok, err := cmd.cli.LookupEnv(f.EnvVarName)
+		val, ok, err := cmd.cli.LookupEnv(f.EnvKey)
 		if err != nil {
 			// TODO?
 			return err
 		}
 		if ok {
 			if err := f.flagValue.Set(val); err != nil {
-				return fmt.Errorf("error parsing %s: %w", f.EnvVarName, err)
+				return fmt.Errorf("error parsing %s: %w", f.EnvKey, err)
 			}
 		}
 	}

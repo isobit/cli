@@ -64,6 +64,15 @@ var Defaults = CLI{
 	Setter:     nil,
 }
 
+func NewCLI() *CLI {
+	return &CLI{
+		HelpWriter: os.Stderr,
+		ErrWriter:  os.Stderr,
+		LookupEnv:  osLookupEnv,
+		Setter:     nil,
+	}
+}
+
 // osLookupEnv wraps os.LookupEnv as a LookupEnvFunc
 func osLookupEnv(key string) (string, bool, error) {
 	val, ok := os.LookupEnv(key)
