@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
+	"os"
 
 	"github.com/huandu/xstrings"
 )
@@ -14,9 +16,8 @@ type field struct {
 	Help        string
 	Placeholder string
 	Required    bool
-	EnvVarName  string
+	EnvKey      string
 	HasArg      bool
-	Repeatable  bool
 	Hidden      bool
 	flagValue   *genericFlagValue
 }
@@ -102,9 +103,8 @@ func (cli *CLI) getField(meta fieldValueMeta) (field, error) {
 		Help:        meta.tags.help,
 		Placeholder: meta.tags.placeholder,
 		Required:    meta.tags.required,
-		EnvVarName:  meta.tags.env,
+		EnvKey:      meta.tags.env,
 		HasArg:      !flagValue.IsBoolFlag(),
-		Repeatable:  meta.tags.repeatable,
 		Hidden:      meta.tags.hidden,
 		flagValue:   flagValue,
 	}
@@ -143,8 +143,9 @@ type fieldTags struct {
 	help          string
 	defaultString string
 	hideDefault   bool
-	repeatable    bool
 	hidden        bool
+	append        bool
+	config        string
 }
 
 func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
@@ -195,16 +196,17 @@ func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
 			t.hideDefault = true
 		}
 	}
-	if _, ok := pop("nodefault"); ok {
-		t.hideDefault = true
-	}
-
-	if _, ok := pop("repeatable"); ok {
-		t.repeatable = true
-	}
 
 	if _, ok := pop("hidden"); ok {
 		t.hidden = true
+	}
+
+	if _, ok := pop("append"); ok {
+		t.append = true
+	}
+
+	if config, ok := pop("config"); ok {
+		t.config = config
 	}
 
 	if len(m) > 0 {
@@ -227,21 +229,51 @@ func (cli *CLI) getFlagValue(name string, meta fieldValueMeta) (*genericFlagValu
 	// type to get a placeholder value to use with getters/stringers. Once
 	// we've obtained a setter, we'll wrap it with pointerSetter so that the
 	// actual pointer isn't set unless a flag is passed.
-	isNilPointerSetter := false
+	isNilPointer := false
 	if val.Kind() == reflect.Ptr && val.IsZero() {
+		isNilPointer = true
 		val = reflect.New(val.Type().Elem())
-		isNilPointerSetter = true
 	}
 
-	// If the field is repeatable, the value will be a slice, so create a
-	// placeholder value of the element type. The setter for the placeholder
+	if meta.tags.config != "" {
+		cfv := &configFlagValue{}
+		if val.Kind() == reflect.Ptr {
+			cfv.value = val.Interface()
+		} else {
+			if !val.CanAddr() {
+				return nil, fmt.Errorf("field has config tag but is not addressable")
+			}
+			cfv.value = val.Addr().Interface()
+		}
+		var set Setter
+		if isNilPointer {
+			set = pointerSetter{
+				setter:           cfv,
+				targetValue:      meta.value,
+				placeholderValue: val,
+			}
+		} else {
+			set = cfv
+		}
+
+		return &genericFlagValue{
+			name:       name,
+			Setter:     set,
+			Stringer:   cfv,
+		}, nil
+	}
+
+	// If the field has the "append" tag, the value will be a slice, so create
+	// a placeholder value of the element type. The setter for the placeholder
 	// will be wrapped with a repeatedSliceSetter later so that values are
 	// appended to the target slice.
+	shouldAppendSlice := false
 	repeatableElemsArePointers := false
-	if meta.tags.repeatable {
+	if meta.tags.append {
 		if val.Kind() != reflect.Slice {
-			return nil, fmt.Errorf("field has repeatable tag but value is not a slice type")
+			return nil, fmt.Errorf("field has append tag but value is not a slice type")
 		}
+		shouldAppendSlice = true
 		valTypeElem := val.Type().Elem()
 		if valTypeElem.Kind() == reflect.Ptr {
 			repeatableElemsArePointers = true
@@ -251,48 +283,22 @@ func (cli *CLI) getFlagValue(name string, meta fieldValueMeta) (*genericFlagValu
 		}
 	}
 
-	var set Setter
-	var str stringer
-
 	// Interfaces might be implemented using value or pointer receivers, so
 	// we'll try both if we can take an address.
 	interfaceables := []interface{}{val.Interface()}
 	if val.CanAddr() {
 		interfaceables = append(interfaceables, val.Addr().Interface())
 	}
-	for _, i := range interfaceables {
-		if set == nil && cli.Setter != nil {
-			set = cli.Setter(i)
-		}
-		if set == nil {
-			set = tryGetSetter(i)
-		}
-		if str == nil {
-			str = tryGetStringer(i)
-		}
-	}
 
-	// override with tag-provided default stringer if available, otherwise fall
-	// back on sprintfStringer if no stringer could be obtained from the
-	// interfaceables
-	if meta.tags.defaultString != "" {
-		str = staticStringer(meta.tags.defaultString)
-	} else if meta.tags.hideDefault {
-		str = staticStringer("")
-	} else if str == nil {
-		str = sprintfStringer{meta.value.Interface()}
-	}
-
+	// Try to obtain a setter from the interfacables.
+	set := cli.tryGetSetter(interfaceables)
 	if set == nil {
 		return nil, fmt.Errorf("no setter for type %s", meta.value.Type())
-	}
-	if str == nil {
-		return nil, fmt.Errorf("no stringer for type %s", meta.value.Type())
 	}
 
 	// Wrap nil pointer placeholder value setter with one that will set the
 	// real pointer to the placeholder if the flag is passed.
-	if isNilPointerSetter {
+	if isNilPointer {
 		set = pointerSetter{
 			setter:           set,
 			targetValue:      meta.value,
@@ -302,8 +308,8 @@ func (cli *CLI) getFlagValue(name string, meta fieldValueMeta) (*genericFlagValu
 
 	// Wrap element placeholder setter with one that will append to the real
 	// value slice when the flag is passed.
-	if meta.tags.repeatable {
-		set = repeatedSliceSetter{
+	if shouldAppendSlice {
+		set = appendSliceSetter{
 			setter:           set,
 			targetValue:      meta.value,
 			placeholderValue: val,
@@ -311,16 +317,100 @@ func (cli *CLI) getFlagValue(name string, meta fieldValueMeta) (*genericFlagValu
 		}
 	}
 
+	// Use tag-provided default stringer if available, otherwise fall back on
+	// sprintfStringer if no stringer could be obtained from the
+	// interfaceables.
+	var str Stringer
+	if meta.tags.defaultString != "" {
+		str = staticStringer(meta.tags.defaultString)
+	} else if meta.tags.hideDefault {
+		str = staticStringer("")
+	} else {
+		str = cli.tryGetStringer(interfaceables)
+	}
+	if str == nil {
+		return nil, fmt.Errorf("no stringer for type %s", meta.value.Type())
+	}
+
 	return &genericFlagValue{
 		name:       name,
 		Setter:     set,
-		stringer:   str,
+		Stringer:   str,
 		isBoolFlag: meta.value.Kind() == reflect.Bool,
 	}, nil
 }
 
+func (cli *CLI) tryGetSetter(interfaceables []interface{}) Setter {
+	for _, i := range interfaceables {
+		if cli.Setter != nil {
+			if set := cli.Setter(i); set != nil {
+				return set
+			}
+		}
+		if set := tryGetSetter(i); set != nil {
+			return set
+		}
+	}
+	return nil
+}
+
+func (cli *CLI) tryGetStringer(interfaceables []interface{}) Stringer {
+	for _, i := range interfaceables {
+		if v, ok := i.(Stringer); ok {
+			return v
+		}
+	}
+	for _, i := range interfaceables {
+		return sprintfStringer{i}
+	}
+	return nil
+}
+
 type Setter interface {
 	Set(s string) error
+}
+
+type Stringer interface {
+	String() string
+}
+
+type genericFlagValue struct {
+	name string
+	Setter
+	Stringer
+	isBoolFlag bool
+	setCount   uint
+}
+
+func (f *genericFlagValue) Set(s string) error {
+	if f.Setter == nil {
+		panic("cli: genericFlagValue has no setter, this should not happen")
+	}
+	f.setCount += 1
+	if err := f.Setter.Set(s); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *genericFlagValue) String() string {
+	if f.Stringer == nil {
+		// Sometimes the flag package uses reflection to construct a zero
+		// genericFlagValue, which obviously doesn't have a stringer, and then
+		// calls String() on it to try to see if the default value is the zero
+		// value. We don't care if it get the correct answer (it's only used in
+		// PrintDefaults which we don't use).
+		return "<unknown>"
+	}
+	return f.Stringer.String()
+}
+
+func (f *genericFlagValue) IsBoolFlag() bool {
+	return f.isBoolFlag
+}
+
+func (f *genericFlagValue) Type() string {
+	return "<unknown>"
 }
 
 type pointerSetter struct {
@@ -341,14 +431,14 @@ func (ps pointerSetter) Set(s string) error {
 	return nil
 }
 
-type repeatedSliceSetter struct {
+type appendSliceSetter struct {
 	setter           Setter
 	targetValue      reflect.Value
 	placeholderValue reflect.Value
 	elemsArePointers bool
 }
 
-func (rss repeatedSliceSetter) Set(s string) error {
+func (rss appendSliceSetter) Set(s string) error {
 	// Try to set the placeholder.
 	if err := rss.setter.Set(s); err != nil {
 		return err
@@ -366,41 +456,23 @@ func (rss repeatedSliceSetter) Set(s string) error {
 	return nil
 }
 
-type stringer interface {
-	String() string
+type configFlagValue struct {
+	value interface{}
+	path string
 }
 
-type genericFlagValue struct {
-	name string
-	Setter
-	stringer
-	isBoolFlag bool
-	setCount   uint
-}
-
-func (f *genericFlagValue) Set(s string) error {
-	if f.Setter == nil {
-		panic("cli: genericFlagValue has no setter, this should not happen")
-	}
-	f.setCount += 1
-	if err := f.Setter.Set(s); err != nil {
+func (cs *configFlagValue) Set(s string) error {
+	bytes, err := os.ReadFile(s)
+	if err != nil {
 		return err
 	}
+	if err := json.Unmarshal(bytes, cs.value); err != nil {
+		return err
+	}
+	cs.path = s
 	return nil
 }
 
-func (f *genericFlagValue) String() string {
-	if f.stringer == nil {
-		// Sometimes the flag package uses reflection to construct a zero
-		// genericFlagValue, which obviously doesn't have a stringer, and then
-		// calls String() on it to try to see if the default value is the zero
-		// value. We don't care if it get the correct answer (it's only used in
-		// PrintDefaults which we don't use).
-		return "<unknown>"
-	}
-	return f.stringer.String()
-}
-
-func (f *genericFlagValue) IsBoolFlag() bool {
-	return f.isBoolFlag
+func (cs *configFlagValue) String() string {
+	return cs.path
 }

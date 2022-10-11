@@ -96,15 +96,6 @@ func (ds durationSetter) Set(s string) error {
 
 // stringers
 
-func tryGetStringer(i interface{}) stringer {
-	switch v := i.(type) {
-	case stringer:
-		return v
-	default:
-		return nil
-	}
-}
-
 type staticStringer string
 
 func (ss staticStringer) String() string {

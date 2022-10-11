@@ -39,7 +39,7 @@ func TestFieldEmbedded(t *testing.T) {
 	assert.Equal(t, "bar", fields[1].Name)
 }
 
-func TestFieldRepeatable(t *testing.T) {
+func TestFieldAppend(t *testing.T) {
 	getFieldSet := func(t *testing.T, cfg interface{}) func(s string) {
 		fields, err := Defaults.getFieldsFromConfig(cfg)
 		require.Nil(t, err)
@@ -52,7 +52,7 @@ func TestFieldRepeatable(t *testing.T) {
 	}
 	t.Run("[]string", func(t *testing.T) {
 		cfg := struct {
-			Vars []string `cli:"repeatable,short=v"`
+			Vars []string `cli:"append,short=v"`
 		}{}
 		set := getFieldSet(t, &cfg)
 		set("aaa")
@@ -62,7 +62,7 @@ func TestFieldRepeatable(t *testing.T) {
 	})
 	t.Run("[]*string", func(t *testing.T) {
 		cfg := struct {
-			Vars []*string `cli:"repeatable,short=v"`
+			Vars []*string `cli:"append,short=v"`
 		}{}
 		set := getFieldSet(t, &cfg)
 		set("aaa")
@@ -73,7 +73,7 @@ func TestFieldRepeatable(t *testing.T) {
 	})
 	t.Run("[]int", func(t *testing.T) {
 		cfg := struct {
-			Vars []int `cli:"repeatable,short=v"`
+			Vars []int `cli:"append,short=v"`
 		}{}
 		set := getFieldSet(t, &cfg)
 		set("1")
@@ -83,7 +83,7 @@ func TestFieldRepeatable(t *testing.T) {
 	})
 	t.Run("[]*int", func(t *testing.T) {
 		cfg := struct {
-			Vars []*int `cli:"repeatable,short=v"`
+			Vars []*int `cli:"append,short=v"`
 		}{}
 		set := getFieldSet(t, &cfg)
 		set("1")

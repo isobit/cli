@@ -64,6 +64,15 @@ var Defaults = CLI{
 	Setter:     nil,
 }
 
+func NewCLI() *CLI {
+	return &CLI{
+		HelpWriter: os.Stderr,
+		ErrWriter:  os.Stderr,
+		LookupEnv:  osLookupEnv,
+		Setter:     nil,
+	}
+}
+
 // osLookupEnv wraps os.LookupEnv as a LookupEnvFunc
 func osLookupEnv(key string) (string, bool, error) {
 	val, ok := os.LookupEnv(key)
@@ -78,12 +87,12 @@ func osLookupEnv(key string) (string, bool, error) {
 // encountered while building the options, such as a struct field having an
 // unsupported type, New will panic. If you would like to have errors returned
 // for handling, use Build instead.
-func New(name string, config interface{}) *Command {
-	return Defaults.New(name, config)
+func New(name string, config interface{}, opts ...CommandOption) *Command {
+	return Defaults.New(name, config, opts...)
 }
 
 // Build is like New, but it returns any errors instead of calling panic, at
 // the expense of being harder to chain.
-func Build(name string, config interface{}) (*Command, error) {
-	return Defaults.Build(name, config)
+func Build(name string, config interface{}, opts ...CommandOption) (*Command, error) {
+	return Defaults.Build(name, config, opts...)
 }

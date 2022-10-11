@@ -22,7 +22,7 @@ OPTIONS:
 \t    \t
 {{- if .ShortName}}-{{.ShortName}}, {{end}}--{{.Name}}
 {{- if .HasArg}} <{{if .Placeholder}}{{.Placeholder}}{{else}}VALUE{{end}}>{{end}}\t
-{{- if .EnvVarName}}  {{.EnvVarName}}{{end}}\t
+{{- if .EnvKey}}  {{.EnvKey}}{{end}}\t
 {{- if .Help}}  {{.Help}}{{end}}
 {{- if and .HasArg }}{{if and .Default (not .Required)}}  (default: {{.Default}}){{else if .Required}}  (required){{end}}{{end}}
 {{- end}}
