@@ -49,7 +49,15 @@ type internalConfig struct {
 	Help bool `cli:"short=h,help=show usage help"`
 }
 
-func (cli CLI) Build(name string, config interface{}) (*Command, error) {
+func (cli CLI) New(name string, config interface{}, opts ...CommandOption) *Command {
+	cmd, err := cli.Build(name, config, opts...)
+	if err != nil {
+		panic(fmt.Sprintf("cli: %s", err))
+	}
+	return cmd
+}
+
+func (cli CLI) Build(name string, config interface{}, opts ...CommandOption) (*Command, error) {
 	cmd := &Command{
 		cli:        cli,
 		name:       name,
@@ -77,15 +85,11 @@ func (cli CLI) Build(name string, config interface{}) (*Command, error) {
 		setuper.SetupCommand(cmd)
 	}
 
-	return cmd, nil
-}
-
-func (cli CLI) New(name string, config interface{}) *Command {
-	cmd, err := cli.Build(name, config)
-	if err != nil {
-		panic(fmt.Sprintf("cli: %s", err))
+	for _, opt := range opts {
+		opt.Apply(cmd)
 	}
-	return cmd
+
+	return cmd, nil
 }
 
 func newFlagSet(name string, fields []field) *flag.FlagSet {
@@ -100,12 +104,12 @@ func newFlagSet(name string, fields []field) *flag.FlagSet {
 	return fs
 }
 
-func (cmd *Command) Help(help string) *Command {
+func (cmd *Command) SetHelp(help string) *Command {
 	cmd.help = help
 	return cmd
 }
 
-func (cmd *Command) Description(description string) *Command {
+func (cmd *Command) SetDescription(description string) *Command {
 	cmd.description = description
 	return cmd
 }
@@ -117,6 +121,10 @@ func (cmd *Command) AddCommand(subCmd *Command) *Command {
 	cmd.commands = append(cmd.commands, subCmd)
 	cmd.commandMap[subCmd.name] = subCmd
 	return cmd
+}
+
+func (cmd *Command) Apply(parent *Command) {
+	parent.AddCommand(cmd)
 }
 
 // Parse is a convenience method for calling ParseArgs(os.Args)
@@ -368,4 +376,26 @@ func (r ParseResult) contextWithSigCancelIfSupported(ctx context.Context) (conte
 		return ctx, func() {}
 	}
 	return signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+}
+
+type CommandOption interface {
+	Apply(cmd *Command)
+}
+
+type commandOptionFunc func(cmd *Command)
+
+func (of commandOptionFunc) Apply(cmd *Command) {
+	of(cmd)
+}
+
+func WithHelp(help string) CommandOption {
+	return commandOptionFunc(func(cmd *Command) {
+		cmd.SetHelp(help)
+	})
+}
+
+func WithDescription(description string) CommandOption {
+	return commandOptionFunc(func(cmd *Command) {
+		cmd.SetDescription(description)
+	})
 }

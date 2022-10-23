@@ -62,8 +62,10 @@ func TestCLIKitchenSink(t *testing.T) {
 	}
 	subcmd := &Subcommand{}
 
-	r := New("test", cmd).
-		AddCommand(New("subcmd", subcmd)).
+	r := New(
+		"test", cmd,
+		New("subcmd", subcmd),
+	).
 		ParseArgs([]string{
 			"test",
 			"--bool",
@@ -227,8 +229,10 @@ func TestCLICustomEnvLookup(t *testing.T) {
 		Bar string `cli:"env=BAR"`
 	}{}
 
-	r := cli.New("test", cmd).
-		AddCommand(cli.New("sub", subcmd)).
+	r := cli.New(
+		"test", cmd,
+		cli.New("sub", subcmd),
+	).
 		ParseArgs([]string{
 			"test", "sub",
 		})

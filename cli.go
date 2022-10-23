@@ -74,16 +74,21 @@ func osLookupEnv(key string) (string, bool, error) {
 // a pointer to a configuration struct. Default values can be specified by
 // simply setting them on the config struct.
 //
+// Command options (e.g. help text and subcommands) can be passed as additonal
+// CommandOption arguments, or set using chained method calls. Note that
+// *Command implements CommandOption, so subcommands can be registered by
+// simply passing them as arugments.
+//
 // New returns an Command pointer for further method chaining. If an error is
 // encountered while building the options, such as a struct field having an
 // unsupported type, New will panic. If you would like to have errors returned
 // for handling, use Build instead.
-func New(name string, config interface{}) *Command {
-	return Defaults.New(name, config)
+func New(name string, config interface{}, opts ...CommandOption) *Command {
+	return Defaults.New(name, config, opts...)
 }
 
 // Build is like New, but it returns any errors instead of calling panic, at
 // the expense of being harder to chain.
-func Build(name string, config interface{}) (*Command, error) {
-	return Defaults.Build(name, config)
+func Build(name string, config interface{}, opts ...CommandOption) (*Command, error) {
+	return Defaults.Build(name, config, opts...)
 }
