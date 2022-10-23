@@ -16,7 +16,6 @@ type field struct {
 	Required    bool
 	EnvVarName  string
 	HasArg      bool
-	Repeatable  bool
 	Hidden      bool
 	flagValue   *genericFlagValue
 }
@@ -104,7 +103,6 @@ func (cli *CLI) getField(meta fieldValueMeta) (field, error) {
 		Required:    meta.tags.required,
 		EnvVarName:  meta.tags.env,
 		HasArg:      !flagValue.IsBoolFlag(),
-		Repeatable:  meta.tags.repeatable,
 		Hidden:      meta.tags.hidden,
 		flagValue:   flagValue,
 	}
@@ -143,8 +141,8 @@ type fieldTags struct {
 	help          string
 	defaultString string
 	hideDefault   bool
-	repeatable    bool
 	hidden        bool
+	append        bool
 }
 
 func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
@@ -199,8 +197,8 @@ func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
 		t.hideDefault = true
 	}
 
-	if _, ok := pop("repeatable"); ok {
-		t.repeatable = true
+	if _, ok := pop("append"); ok {
+		t.append = true
 	}
 
 	if _, ok := pop("hidden"); ok {
@@ -235,13 +233,17 @@ func (cli *CLI) getFlagValue(name string, meta fieldValueMeta) (*genericFlagValu
 
 	// If the field is repeatable, the value will be a slice, so create a
 	// placeholder value of the element type. The setter for the placeholder
+	// If the field has the "append" tag, the value will be a slice, so create
+	// a placeholder value of the element type. The setter for the placeholder
 	// will be wrapped with a repeatedSliceSetter later so that values are
 	// appended to the target slice.
+	shouldAppendSlice := false
 	repeatableElemsArePointers := false
-	if meta.tags.repeatable {
+	if meta.tags.append {
 		if val.Kind() != reflect.Slice {
-			return nil, fmt.Errorf("field has repeatable tag but value is not a slice type")
+			return nil, fmt.Errorf("field has append tag but value is not a slice type")
 		}
+		shouldAppendSlice = true
 		valTypeElem := val.Type().Elem()
 		if valTypeElem.Kind() == reflect.Ptr {
 			repeatableElemsArePointers = true
@@ -302,8 +304,8 @@ func (cli *CLI) getFlagValue(name string, meta fieldValueMeta) (*genericFlagValu
 
 	// Wrap element placeholder setter with one that will append to the real
 	// value slice when the flag is passed.
-	if meta.tags.repeatable {
-		set = repeatedSliceSetter{
+	if shouldAppendSlice {
+		set = appendSliceSetter{
 			setter:           set,
 			targetValue:      meta.value,
 			placeholderValue: val,
@@ -341,14 +343,14 @@ func (ps pointerSetter) Set(s string) error {
 	return nil
 }
 
-type repeatedSliceSetter struct {
+type appendSliceSetter struct {
 	setter           Setter
 	targetValue      reflect.Value
 	placeholderValue reflect.Value
 	elemsArePointers bool
 }
 
-func (rss repeatedSliceSetter) Set(s string) error {
+func (rss appendSliceSetter) Set(s string) error {
 	// Try to set the placeholder.
 	if err := rss.setter.Set(s); err != nil {
 		return err

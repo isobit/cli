@@ -32,7 +32,9 @@ func (app *App) Run() error {
 }
 
 func main() {
-	cli.New("greet", &App{Greeting: "Hey"}).
+	cli.New("greet", &App{
+		Greeting: "Hey",
+	}).
 		Parse().
 		RunFatal()
 }
@@ -65,17 +67,17 @@ struct Example {
 }
 ```
 
-| Tag           | Value | Description                                                                                    |
-| -             | -     | -                                                                                              |
-| `-`           | No    | Ignore field (similar to `encoding/json`)                                                      |
-| `required`    | No    | Error if the field is not set at least once                                                    |
-| `help`        | Yes   | Custom help text                                                                               |
-| `placeholder` | Yes   | Custom value placeholder in help text                                                          |
-| `name`        | Yes   | Explicit flag name (by default names are derived from the struct field name)                   |
-| `short`       | Yes   | Single character short name alias                                                              |
-| `env`         | Yes   | Environment variable to use as a default value                                                 |
-| `repeatable`  | No    | Allow flag to be specified many times (value must be a slice type, each flag will be appended) |
-| `hidden`      | No    | Don't show field in help text |
+| Tag           | Value | Description                                                                                          |
+| -             | -     | -                                                                                                    |
+| `-`           | No    | Ignore field (similar to `encoding/json`)                                                            |
+| `required`    | No    | Error if the field is not set at least once                                                          |
+| `help`        | Yes   | Custom help text                                                                                     |
+| `placeholder` | Yes   | Custom value placeholder in help text                                                                |
+| `name`        | Yes   | Explicit flag name (by default names are derived from the struct field name)                         |
+| `short`       | Yes   | Single character short name alias                                                                    |
+| `env`         | Yes   | Environment variable to use as a default value                                                       |
+| `hidden`      | No    | Don't show field in help text                                                                        |
+| `append`      | No    | Change flag setting behavior to append to value when specified multiple times (must be a slice type) |
 
 Tags are parsed according to this ABNF:
 

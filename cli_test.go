@@ -50,7 +50,7 @@ func TestCLIKitchenSink(t *testing.T) {
 		Time              time.Time
 		Duration          time.Duration
 		unexportedInt     int
-		RepeatedString    []string `cli:"repeatable"`
+		Strings           []string `cli:"append"`
 	}
 	type Subcommand struct {
 		Message string
@@ -77,7 +77,7 @@ func TestCLIKitchenSink(t *testing.T) {
 			"--int64-pointer", "123",
 			"--time", "2022-02-22T22:22:22Z",
 			"--duration", "15m",
-			"--repeated-string", "a", "--repeated-string", "b",
+			"--strings", "a", "--strings", "b",
 			"subcmd",
 			"--message", "Hello, world!",
 		})
@@ -103,7 +103,7 @@ func TestCLIKitchenSink(t *testing.T) {
 		Int64WithDefault:  -123,
 		Time:              timeValue,
 		Duration:          durationValue,
-		RepeatedString:    []string{"a", "b"},
+		Strings:           []string{"a", "b"},
 	}
 	subcmdExpected := &Subcommand{
 		Message: "Hello, world!",
