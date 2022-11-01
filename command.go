@@ -159,7 +159,7 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 
 	// Parse arguments using the flagset.
 	if err := cmd.flagset.Parse(args); err != nil {
-		return r.err(fmt.Errorf("failed to parse args: %w", err))
+		return r.err(UsageErrorf("failed to parse args: %w", err))
 	}
 
 	// Return ErrHelp if help was requested.
@@ -169,19 +169,18 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 
 	// Parse environment variables.
 	if err := cmd.parseEnvVars(); err != nil {
-		return r.err(fmt.Errorf("failed to parse environment variables: %w", err))
+		return r.err(UsageErrorf("failed to parse environment variables: %w", err))
 	}
 
 	// Return an error if any required fields were not set at least once.
 	if err := cmd.checkRequired(); err != nil {
-		return r.err(err)
+		return r.err(UsageError(err))
 	}
 
 	// If the config implements a Before method, run it before we recursively
 	// parse subcommands.
 	if beforer, ok := cmd.config.(Beforer); ok {
-		err := beforer.Before()
-		if err != nil {
+		if err := beforer.Before(); err != nil {
 			return r.err(err)
 		}
 	}
@@ -193,35 +192,35 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 		if cmd, ok := cmd.commandMap[cmdName]; ok {
 			return cmd.ParseArgs(rargs[1:])
 		} else {
-			return r.err(fmt.Errorf("unknown command %s", cmdName))
+			return r.err(UsageErrorf("unknown command %s", cmdName))
 		}
 	}
 
-	r.runInfo = getRunInfo(cmd.config)
-	if r.runInfo == nil && len(cmd.commands) != 0 {
-		return r.err(fmt.Errorf("no command specified"))
+	r.runFunc = getRunFunc(cmd.config)
+	if r.runFunc == nil && len(cmd.commands) != 0 {
+		return r.err(UsageErrorf("no command specified"))
 	}
 
 	return r
 }
 
-type runInfo struct {
+type runFunc struct {
 	run             func(context.Context) error
 	supportsContext bool
 }
 
-func getRunInfo(config interface{}) *runInfo {
+func getRunFunc(config interface{}) *runFunc {
 	if r, ok := config.(Runner); ok {
 		run := func(context.Context) error {
 			return r.Run()
 		}
-		return &runInfo{
+		return &runFunc{
 			run:             run,
 			supportsContext: false,
 		}
 	}
 	if r, ok := config.(ContextRunner); ok {
-		return &runInfo{
+		return &runFunc{
 			run:             r.Run,
 			supportsContext: true,
 		}
@@ -287,18 +286,55 @@ func (cmd *Command) checkRequired() error {
 	return nil
 }
 
+// UsageError wraps the given error as a UsageErrorWrapper.
+func UsageError(err error) UsageErrorWrapper {
+	return UsageErrorWrapper{Err: err}
+}
+
+// UsageErrorf is a convenience method for wrapping the result of fmt.Errorf as
+// a UsageErrorWrapper.
+func UsageErrorf(format string, v ...interface{}) UsageErrorWrapper {
+	return UsageErrorWrapper{Err: fmt.Errorf(format, v...)}
+}
+
+// UsageErrorWrapper wraps another error to indicate that the error was due to
+// incorrect usage. When this error is handled, help text should be printed in
+// addition to the error message.
+type UsageErrorWrapper struct {
+	Err error
+}
+
+func (w UsageErrorWrapper) Unwrap() error {
+	return w.Err
+}
+
+func (w UsageErrorWrapper) Error() string {
+	return w.Err.Error()
+}
+
 // ParseResult contains information about the results of command argument
 // parsing.
 type ParseResult struct {
 	Err     error
 	Command *Command
-	runInfo *runInfo
+	runFunc *runFunc
 }
 
 // Convenience method for returning errors wrapped as a ParsedResult.
 func (r ParseResult) err(err error) ParseResult {
 	r.Err = err
 	return r
+}
+
+func (r ParseResult) writeHelpIfUsageOrHelpError(err error) {
+	if err == nil || r.Command == nil || r.Command.cli.HelpWriter == nil {
+		return
+	}
+	_, isUsageErr := err.(UsageErrorWrapper)
+	fmt.Println(err, isUsageErr, err == ErrHelp)
+	if isUsageErr || err == ErrHelp {
+		r.Command.WriteHelp(r.Command.cli.HelpWriter)
+	}
 }
 
 // Run calls the Run method of the Command config for the parsed command or, if
@@ -314,15 +350,17 @@ func (r ParseResult) Run() error {
 // passed to the command's Run method, if it accepts one.
 func (r ParseResult) RunWithContext(ctx context.Context) error {
 	if r.Err != nil {
-		if r.Command != nil && r.Command.cli.HelpWriter != nil {
-			r.Command.WriteHelp(r.Command.cli.HelpWriter)
-		}
+		r.writeHelpIfUsageOrHelpError(r.Err)
 		return r.Err
 	}
-	if r.runInfo == nil {
+	if r.runFunc == nil {
 		return fmt.Errorf("no run method implemented")
 	}
-	return r.runInfo.run(ctx)
+	if err := r.runFunc.run(ctx); err != nil {
+		r.writeHelpIfUsageOrHelpError(err)
+		return err
+	}
+	return nil
 }
 
 // RunWithSigCancel is like Run, but it automatically registers a signal
@@ -351,6 +389,7 @@ func (r ParseResult) RunFatal() {
 func (r ParseResult) RunFatalWithContext(ctx context.Context) {
 	err := r.RunWithContext(ctx)
 	if err != nil {
+		r.writeHelpIfUsageOrHelpError(err)
 		if err != ErrHelp && r.Command != nil && r.Command.cli.ErrWriter != nil {
 			fmt.Fprintf(r.Command.cli.ErrWriter, "error: %s\n", err)
 		}
@@ -372,7 +411,7 @@ func (r ParseResult) RunFatalWithSigCancel() {
 }
 
 func (r ParseResult) contextWithSigCancelIfSupported(ctx context.Context) (context.Context, context.CancelFunc) {
-	if r.runInfo == nil || !r.runInfo.supportsContext {
+	if r.runFunc == nil || !r.runFunc.supportsContext {
 		return ctx, func() {}
 	}
 	return signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)

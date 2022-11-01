@@ -5,9 +5,6 @@ import (
 	"os"
 )
 
-type LookupEnvFunc func(key string) (val string, ok bool, err error)
-type SetterFunc func(interface{}) Setter
-
 // CLI defines functionality which is global to all commands which it
 // constructs. The top-level New and Build methods use a CLI with good defaults
 // for most cases, but custom CLI structs can be used to modify behavior.
@@ -63,6 +60,9 @@ var Defaults = CLI{
 	LookupEnv:  osLookupEnv,
 	Setter:     nil,
 }
+
+type LookupEnvFunc func(key string) (val string, ok bool, err error)
+type SetterFunc func(interface{}) Setter
 
 // osLookupEnv wraps os.LookupEnv as a LookupEnvFunc
 func osLookupEnv(key string) (string, bool, error) {
