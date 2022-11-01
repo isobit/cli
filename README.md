@@ -5,6 +5,9 @@
 Package `cli` makes it easy to create CLIs by defining options using struct
 tags.
 
+:warning: This package is under active development and is subject to major
+breaking changes prior to the 1.0 release.
+
 ## Example
 
 ```go
