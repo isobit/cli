@@ -38,31 +38,29 @@ type CLI struct {
 	//  	*ts.value = parsed
 	//  	return nil
 	//  }
-	//  cli := cli.CLI{
-	//  	ErrWriter: cli.Defaults.ErrWriter,
-	//  	LookupEnv: cli.Defaults.LookupEnv,
-	//  	Setter: func(i interface{}) cli.Setter {
-	//  		switch v := i.(type) {
-	//  		case *time.Time:
-	//  			return &CustomTimeSetter{v}
-	//  		default:
-	//  			// return nil to fall back on default behavior
-	//  			return nil
-	//  		}
-	//  	},
+	//  cli := cli.NewCLI()
+	//  cli.Setter = func(i interface{}) cli.Setter {
+	//  	switch v := i.(type) {
+	//  	case *time.Time:
+	//  		return &CustomTimeSetter{v}
+	//  	default:
+	//  		// return nil to fall back on default behavior
+	//  		return nil
+	//  	}
 	//  }
 	Setter SetterFunc
 }
 
-var Defaults = CLI{
-	HelpWriter: os.Stderr,
-	ErrWriter:  os.Stderr,
-	LookupEnv:  osLookupEnv,
-	Setter:     nil,
+func NewCLI() *CLI {
+	return &CLI{
+		HelpWriter: os.Stderr,
+		ErrWriter:  os.Stderr,
+		LookupEnv:  osLookupEnv,
+		Setter:     nil,
+	}
 }
 
-type LookupEnvFunc func(key string) (val string, ok bool, err error)
-type SetterFunc func(interface{}) Setter
+var defaultCLI *CLI = NewCLI()
 
 // osLookupEnv wraps os.LookupEnv as a LookupEnvFunc
 func osLookupEnv(key string) (string, bool, error) {
@@ -84,11 +82,15 @@ func osLookupEnv(key string) (string, bool, error) {
 // unsupported type, New will panic. If you would like to have errors returned
 // for handling, use Build instead.
 func New(name string, config interface{}, opts ...CommandOption) *Command {
-	return Defaults.New(name, config, opts...)
+	return defaultCLI.New(name, config, opts...)
 }
 
 // Build is like New, but it returns any errors instead of calling panic, at
 // the expense of being harder to chain.
 func Build(name string, config interface{}, opts ...CommandOption) (*Command, error) {
-	return Defaults.Build(name, config, opts...)
+	return defaultCLI.Build(name, config, opts...)
 }
+
+type LookupEnvFunc func(key string) (val string, ok bool, err error)
+
+type SetterFunc func(interface{}) Setter

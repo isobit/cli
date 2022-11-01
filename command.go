@@ -31,7 +31,7 @@ type ExitCoder interface {
 }
 
 type Command struct {
-	cli             CLI
+	cli             *CLI
 	name            string
 	help            string
 	description     string
@@ -49,7 +49,7 @@ type internalConfig struct {
 	Help bool `cli:"short=h,help=show usage help"`
 }
 
-func (cli CLI) New(name string, config interface{}, opts ...CommandOption) *Command {
+func (cli *CLI) New(name string, config interface{}, opts ...CommandOption) *Command {
 	cmd, err := cli.Build(name, config, opts...)
 	if err != nil {
 		panic(fmt.Sprintf("cli: %s", err))
@@ -57,7 +57,7 @@ func (cli CLI) New(name string, config interface{}, opts ...CommandOption) *Comm
 	return cmd
 }
 
-func (cli CLI) Build(name string, config interface{}, opts ...CommandOption) (*Command, error) {
+func (cli *CLI) Build(name string, config interface{}, opts ...CommandOption) (*Command, error) {
 	cmd := &Command{
 		cli:        cli,
 		name:       name,
