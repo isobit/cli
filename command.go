@@ -414,7 +414,15 @@ func (r ParseResult) contextWithSigCancelIfSupported(ctx context.Context) (conte
 	if r.runFunc == nil || !r.runFunc.supportsContext {
 		return ctx, func() {}
 	}
-	return signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		// Cancel the signal notify on the first signal so that subsequent
+		// SIGINT/SIGTERM immediately interrupt the program using the usual go
+		// runtime handling.
+		<-ctx.Done()
+		cancel()
+	}()
+	return ctx, cancel
 }
 
 type CommandOption interface {
