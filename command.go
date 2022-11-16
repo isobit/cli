@@ -331,7 +331,6 @@ func (r ParseResult) writeHelpIfUsageOrHelpError(err error) {
 		return
 	}
 	_, isUsageErr := err.(UsageErrorWrapper)
-	fmt.Println(err, isUsageErr, err == ErrHelp)
 	if isUsageErr || err == ErrHelp {
 		r.Command.WriteHelp(r.Command.cli.HelpWriter)
 	}
@@ -389,7 +388,6 @@ func (r ParseResult) RunFatal() {
 func (r ParseResult) RunFatalWithContext(ctx context.Context) {
 	err := r.RunWithContext(ctx)
 	if err != nil {
-		r.writeHelpIfUsageOrHelpError(err)
 		if err != ErrHelp && r.Command != nil && r.Command.cli.ErrWriter != nil {
 			fmt.Fprintf(r.Command.cli.ErrWriter, "error: %s\n", err)
 		}
