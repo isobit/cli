@@ -58,6 +58,9 @@ func (cli *CLI) New(name string, config interface{}, opts ...CommandOption) *Com
 }
 
 func (cli *CLI) Build(name string, config interface{}, opts ...CommandOption) (*Command, error) {
+	if config == nil {
+		config = &struct{}{}
+	}
 	cmd := &Command{
 		cli:        cli,
 		name:       name,

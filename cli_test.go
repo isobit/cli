@@ -299,3 +299,11 @@ func TestCLISetter(t *testing.T) {
 	require.NoError(t, r.Err)
 	assert.Equal(t, time.Time(time.Date(0, time.January, 1, 12, 30, 0, 0, time.UTC)), cmd.Time)
 }
+
+func TestCLINilConfig(t *testing.T) {
+	r := New("test", nil).
+		ParseArgs([]string{
+			"test",
+		})
+	require.NoError(t, r.Err)
+}
