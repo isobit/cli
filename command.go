@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/spf13/pflag"
 )
 
 type Runner interface {
@@ -38,8 +40,8 @@ type Command struct {
 	config          interface{}
 	internalConfig  internalConfig
 	fields          []field
-	flagset         *flag.FlagSet
-	flagsetInternal *flag.FlagSet
+	flagset         flagSet
+	flagsetInternal flagSet
 	parent          *Command
 	commands        []*Command
 	commandMap      map[string]*Command
@@ -95,16 +97,33 @@ func (cli *CLI) Build(name string, config interface{}, opts ...CommandOption) (*
 	return cmd, nil
 }
 
+type flagSet interface {
+	Parse(args []string) error
+	Args() []string
+}
+
 func newFlagSet(name string, fields []field) *flag.FlagSet {
-	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	fs.SetOutput(ioutil.Discard)
+	flagSet := flag.NewFlagSet(name, flag.ContinueOnError)
+	flagSet.SetOutput(ioutil.Discard)
 	for _, f := range fields {
-		fs.Var(f.flagValue, f.Name, f.Help)
+		flagSet.Var(f.flagValue, f.Name, f.Help)
 		if f.ShortName != "" {
-			fs.Var(f.flagValue, f.ShortName, f.Help)
+			flagSet.Var(f.flagValue, f.ShortName, f.Help)
 		}
 	}
-	return fs
+	return flagSet
+}
+
+func newPflagSet(name string, fields []field) *pflag.FlagSet {
+	flagSet := pflag.NewFlagSet(name, pflag.ContinueOnError)
+	flagSet.SetOutput(ioutil.Discard)
+	for _, f := range fields {
+		flag := flagSet.VarPF(f.flagValue, f.Name, f.ShortName, f.Help)
+		if f.flagValue.isBoolFlag {
+			flag.NoOptDefVal = "true"
+		}
+	}
+	return flagSet
 }
 
 func (cmd *Command) SetHelp(help string) *Command {

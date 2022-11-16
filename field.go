@@ -380,6 +380,10 @@ type genericFlagValue struct {
 	setCount   uint
 }
 
+func (f *genericFlagValue) Type() string {
+	return "generic"
+}
+
 func (f *genericFlagValue) Set(s string) error {
 	if f.Setter == nil {
 		panic("cli: genericFlagValue has no setter, this should not happen")

@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/huandu/xstrings v1.3.2
+	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 )
 
