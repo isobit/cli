@@ -25,7 +25,7 @@ func TestCLIBasic(t *testing.T) {
 			"--string", "hello",
 			"--int", "42",
 		})
-	require.Nil(t, r.Err)
+	require.NoError(t, r.Err)
 
 	expected := &Cmd{
 		Bool:   true,
@@ -81,14 +81,14 @@ func TestCLIKitchenSink(t *testing.T) {
 			"subcmd",
 			"--message", "Hello, world!",
 		})
-	require.Nil(t, r.Err)
+	require.NoError(t, r.Err)
 
 	stringPointerValue := "hello"
 	int64PointerValue := int64(123)
 	timeValue, err := time.Parse(time.RFC3339, "2022-02-22T22:22:22Z")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	durationValue, err := time.ParseDuration("15m")
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	cmdExpected := &Cmd{
 		Bool:              true,
@@ -122,7 +122,7 @@ func TestCLIRequired(t *testing.T) {
 		ParseArgs([]string{
 			"test",
 		})
-	assert.NotNil(t, r.Err)
+	assert.Error(t, r.Err)
 }
 
 type cliRunTestCmd struct {
@@ -151,10 +151,10 @@ func TestCLIRun(t *testing.T) {
 			"--user", "foo",
 			"--punctuation", "!",
 		})
-	require.Nil(t, r.Err)
+	require.NoError(t, r.Err)
 
 	err := r.Run()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	assert.Equal(t, "Hello, foo!", cmd.message)
 }
@@ -170,7 +170,7 @@ func TestCLIEnvVar(t *testing.T) {
 		ParseArgs([]string{
 			"test",
 		})
-	require.Nil(t, r.Err)
+	require.NoError(t, r.Err)
 	assert.Equal(t, "quux", cmd.Foo)
 }
 
@@ -185,7 +185,7 @@ func TestCLIEnvVarPrecedence(t *testing.T) {
 		ParseArgs([]string{
 			"test", "--foo", "override",
 		})
-	require.Nil(t, r.Err)
+	require.NoError(t, r.Err)
 	assert.Equal(t, "override", cmd.Foo)
 }
 
@@ -205,7 +205,7 @@ func TestCLIPointerWithDefault(t *testing.T) {
 		URL: &url.URL{Scheme: "https", Host: "example.com"},
 	}
 	r := New("test", cmd).ParseArgs([]string{"test"})
-	require.Nil(t, r.Err)
+	require.NoError(t, r.Err)
 
 	expected := &Cmd{
 		URL: &url.URL{Scheme: "https", Host: "example.com"},
@@ -236,7 +236,7 @@ func TestCLICustomEnvLookup(t *testing.T) {
 		ParseArgs([]string{
 			"test", "sub",
 		})
-	require.Nil(t, r.Err)
+	require.NoError(t, r.Err)
 	assert.Equal(t, "quux", cmd.Foo)
 	assert.Equal(t, "quux", subcmd.Bar)
 }
@@ -258,7 +258,7 @@ func TestCLIEnvLookupError(t *testing.T) {
 		ParseArgs([]string{
 			"test",
 		})
-	assert.NotNil(t, r.Err)
+	assert.Error(t, r.Err)
 }
 
 type testTimeSetter struct {
@@ -296,6 +296,6 @@ func TestCLISetter(t *testing.T) {
 		ParseArgs([]string{
 			"test", "--time", "12:30PM",
 		})
-	require.Nil(t, r.Err)
+	require.NoError(t, r.Err)
 	assert.Equal(t, time.Time(time.Date(0, time.January, 1, 12, 30, 0, 0, time.UTC)), cmd.Time)
 }
