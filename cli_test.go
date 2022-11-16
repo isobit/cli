@@ -20,7 +20,6 @@ func TestCLIBasic(t *testing.T) {
 	cmd := &Cmd{}
 	r := New("test", cmd).
 		ParseArgs([]string{
-			"test",
 			"--bool",
 			"--string", "hello",
 			"--int", "42",
@@ -67,7 +66,6 @@ func TestCLIKitchenSink(t *testing.T) {
 		New("subcmd", subcmd),
 	).
 		ParseArgs([]string{
-			"test",
 			"--bool",
 			"--string", "hello",
 			"--int", "42",
@@ -119,9 +117,7 @@ func TestCLIRequired(t *testing.T) {
 	cmd := &Cmd{}
 
 	r := New("test", cmd).
-		ParseArgs([]string{
-			"test",
-		})
+		ParseArgs([]string{})
 	assert.Error(t, r.Err)
 }
 
@@ -147,7 +143,6 @@ func TestCLIRun(t *testing.T) {
 
 	r := New("test", cmd).
 		ParseArgs([]string{
-			"test",
 			"--user", "foo",
 			"--punctuation", "!",
 		})
@@ -167,9 +162,7 @@ func TestCLIEnvVar(t *testing.T) {
 
 	t.Setenv("FOO", "quux")
 	r := New("test", cmd).
-		ParseArgs([]string{
-			"test",
-		})
+		ParseArgs([]string{})
 	require.NoError(t, r.Err)
 	assert.Equal(t, "quux", cmd.Foo)
 }
@@ -183,7 +176,7 @@ func TestCLIEnvVarPrecedence(t *testing.T) {
 	t.Setenv("FOO", "quux")
 	r := New("test", cmd).
 		ParseArgs([]string{
-			"test", "--foo", "override",
+			"--foo", "override",
 		})
 	require.NoError(t, r.Err)
 	assert.Equal(t, "override", cmd.Foo)
@@ -191,9 +184,7 @@ func TestCLIEnvVarPrecedence(t *testing.T) {
 
 func TestCLIErrHelp(t *testing.T) {
 	r := New("test", &struct{}{}).
-		ParseArgs([]string{
-			"test", "--help",
-		})
+		ParseArgs([]string{"--help"})
 	assert.Equal(t, r.Err, ErrHelp)
 }
 
@@ -204,7 +195,7 @@ func TestCLIPointerWithDefault(t *testing.T) {
 	cmd := &Cmd{
 		URL: &url.URL{Scheme: "https", Host: "example.com"},
 	}
-	r := New("test", cmd).ParseArgs([]string{"test"})
+	r := New("test", cmd).ParseArgs([]string{})
 	require.NoError(t, r.Err)
 
 	expected := &Cmd{
@@ -234,7 +225,7 @@ func TestCLICustomEnvLookup(t *testing.T) {
 		cli.New("sub", subcmd),
 	).
 		ParseArgs([]string{
-			"test", "sub",
+			"sub",
 		})
 	require.NoError(t, r.Err)
 	assert.Equal(t, "quux", cmd.Foo)
@@ -255,9 +246,7 @@ func TestCLIEnvLookupError(t *testing.T) {
 	}{}
 
 	r := cli.New("test", cmd).
-		ParseArgs([]string{
-			"test",
-		})
+		ParseArgs([]string{})
 	assert.Error(t, r.Err)
 }
 
@@ -294,7 +283,7 @@ func TestCLISetter(t *testing.T) {
 
 	r := cli.New("test", cmd).
 		ParseArgs([]string{
-			"test", "--time", "12:30PM",
+			"--time", "12:30PM",
 		})
 	require.NoError(t, r.Err)
 	assert.Equal(t, time.Time(time.Date(0, time.January, 1, 12, 30, 0, 0, time.UTC)), cmd.Time)
@@ -302,8 +291,6 @@ func TestCLISetter(t *testing.T) {
 
 func TestCLINilConfig(t *testing.T) {
 	r := New("test", nil).
-		ParseArgs([]string{
-			"test",
-		})
+		ParseArgs([]string{})
 	require.NoError(t, r.Err)
 }

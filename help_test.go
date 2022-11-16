@@ -14,10 +14,8 @@ func TestCLIWritesHelp(t *testing.T) {
 		HelpWriter: b,
 	}
 
-	err := cli.New("test", &struct{}{}).
-		ParseArgs([]string{
-			"test", "--help",
-		}).
+	err := cli.New("test", nil).
+		ParseArgs([]string{"--help"}).
 		Run()
 	assert.Equal(t, err, ErrHelp)
 	assert.NotEmpty(t, b.String())
@@ -29,10 +27,8 @@ func TestCLIInvalidUsageWritesHelp(t *testing.T) {
 		HelpWriter: b,
 	}
 
-	err := cli.New("test", &struct{}{}).
-		ParseArgs([]string{
-			"test", "--undefined",
-		}).
+	err := cli.New("test", nil).
+		ParseArgs([]string{"--undefined"}).
 		Run()
 	assert.Error(t, err)
 	assert.NotEmpty(t, b.String())
@@ -95,7 +91,7 @@ func TestCLIUsageErrors(t *testing.T) {
 				runErr:    testCase.runErr,
 			}
 			err := cli.New("test", cmd).
-				ParseArgs([]string{"test"}).
+				ParseArgs([]string{}).
 				Run()
 			if testCase.beforeErr != nil {
 				assert.Equal(t, testCase.beforeErr, err)

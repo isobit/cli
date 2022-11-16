@@ -130,27 +130,28 @@ func (cmd *Command) Apply(parent *Command) {
 	parent.AddCommand(cmd)
 }
 
-// Parse is a convenience method for calling ParseArgs(os.Args)
+// Parse is a convenience method for calling ParseArgs(os.Args[1:])
 func (cmd *Command) Parse() ParseResult {
-	return cmd.ParseArgs(os.Args)
+	return cmd.ParseArgs(os.Args[1:])
 }
 
-// ParseArgs parses using the passed-in args slice and OS-provided environment
-// variables and returns a ParseResult which can be used for further method
-// chaining.
+// ParseArgs parses the passed-in args slice, along with environment variables,
+// into the config fields, and returns a ParseResult which can be used for
+// further method chaining.
 //
 // If there are args remaining after parsing this Command's fields, subcommands
-// will be recursively parsed until a concrete result is returned. If a Before
-// method is implemented on the config, this method will call it before
-// recursing into any subcommand parsing.
+// will be recursively parsed until a concrete result is returned
+//
+// If a Before method is implemented on the config, this method will call it
+// before calling Run or recursing into any subcommand parsing.
 func (cmd *Command) ParseArgs(args []string) ParseResult {
+	if args == nil {
+		args = []string{}
+	}
+
 	r := ParseResult{Command: cmd}
 
 	if cmd.parent == nil && len(args) > 0 {
-		// if we're the root, the first arg is the program name and should be
-		// skipped.
-		args = args[1:]
-
 		// Do a minimal recursive parsing pass (only on the internal flagset)
 		// so we can exit early with help if the help flag is passed on this
 		// command or any subcommand before proceeding.
