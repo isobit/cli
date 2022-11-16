@@ -12,7 +12,7 @@ func TestFieldIgnoreMinusTag(t *testing.T) {
 		Ignored string `cli:"-"`
 	}
 	fields, err := defaultCLI.getFieldsFromConfig(&Cfg{})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.Len(t, fields, 0)
 }
 
@@ -33,7 +33,7 @@ func TestFieldEmbedded(t *testing.T) {
 		EmbeddedCfg
 	}
 	fields, err := defaultCLI.getFieldsFromConfig(&Cfg{})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.Len(t, fields, 2)
 	assert.Equal(t, "foo", fields[0].Name)
 	assert.Equal(t, "bar", fields[1].Name)
@@ -42,12 +42,12 @@ func TestFieldEmbedded(t *testing.T) {
 func TestFieldAppend(t *testing.T) {
 	getFieldSet := func(t *testing.T, cfg interface{}) func(s string) {
 		fields, err := defaultCLI.getFieldsFromConfig(cfg)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Len(t, fields, 1)
 		flag := fields[0].flagValue
 		return func(s string) {
 			err := flag.Set(s)
-			require.Nil(t, err)
+			require.NoError(t, err)
 		}
 	}
 	t.Run("[]string", func(t *testing.T) {
