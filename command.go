@@ -38,6 +38,7 @@ type Command struct {
 	config          interface{}
 	internalConfig  internalConfig
 	fields          []field
+	argsField       *argsField
 	flagset         *flag.FlagSet
 	flagsetInternal *flag.FlagSet
 	parent          *Command
@@ -70,18 +71,19 @@ func (cli *CLI) Build(name string, config interface{}, opts ...CommandOption) (*
 		commandMap: map[string]*Command{},
 	}
 
-	internalFields, err := cli.getFieldsFromConfig(&cmd.internalConfig)
+	internalFields, _, err := cli.getFieldsFromConfig(&cmd.internalConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error building internal config: %w", err)
 	}
 	cmd.fields = append(cmd.fields, internalFields...)
 	cmd.flagsetInternal = newFlagSet(name, internalFields)
 
-	configFields, err := cli.getFieldsFromConfig(config)
+	configFields, argsField, err := cli.getFieldsFromConfig(config)
 	if err != nil {
 		return nil, err
 	}
 	cmd.fields = append(cmd.fields, configFields...)
+	cmd.argsField = argsField
 	cmd.flagset = newFlagSet(name, cmd.fields)
 
 	if setuper, ok := cmd.config.(Setuper); ok {
@@ -120,6 +122,10 @@ func (cmd *Command) SetDescription(description string) *Command {
 // AddCommand registers another Command instance as a subcommand of this Command
 // instance.
 func (cmd *Command) AddCommand(subCmd *Command) *Command {
+	if cmd.argsField != nil {
+		// TODO return error
+		panic("cli: subcommands cannot be added to a command with an args field")
+	}
 	subCmd.parent = cmd
 	cmd.commands = append(cmd.commands, subCmd)
 	cmd.commandMap[subCmd.name] = subCmd
@@ -192,11 +198,15 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 	// Handle remaining arguments, recursively parse subcommands.
 	rargs := cmd.flagset.Args()
 	if len(rargs) > 0 {
-		cmdName := rargs[0]
-		if cmd, ok := cmd.commandMap[cmdName]; ok {
-			return cmd.ParseArgs(rargs[1:])
+		if cmd.argsField != nil {
+			cmd.argsField.setter(rargs)
 		} else {
-			return r.err(UsageErrorf("unknown command %s", cmdName))
+			cmdName := rargs[0]
+			if cmd, ok := cmd.commandMap[cmdName]; ok {
+				return cmd.ParseArgs(rargs[1:])
+			} else {
+				return r.err(UsageErrorf("unknown command %s", cmdName))
+			}
 		}
 	}
 

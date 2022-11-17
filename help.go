@@ -13,7 +13,7 @@ var ErrHelp = fmt.Errorf("cli: help requested")
 var helpTemplateString = `
 {{- if 0}}{{end -}}
 USAGE:
-    {{.FullName}}{{if .Fields}} [OPTIONS]{{end}}{{if .Commands}} <COMMAND>{{end}}
+    {{.FullName}}{{if .Fields}} [OPTIONS]{{end}}{{if .Commands}} <COMMAND>{{end}}{{if .Args}} [ARGS]{{end}}
 
 {{- if .Fields}}
 
@@ -80,11 +80,13 @@ func (cmd *Command) WriteHelp(w io.Writer) {
 		Description string
 		Fields      []field
 		Commands    []subcommandData
+		Args        bool
 	}{
 		FullName:    cmd.fullName(),
 		Description: strings.ReplaceAll(strings.TrimSpace(cmd.description), "\n", "\n    "),
 		Fields:      cmd.fields,
 		Commands:    []subcommandData{},
+		Args:        cmd.argsField != nil,
 	}
 	for _, cmd := range cmd.commands {
 		data.Commands = append(data.Commands, subcommandData{

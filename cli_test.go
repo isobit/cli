@@ -294,3 +294,29 @@ func TestCLINilConfig(t *testing.T) {
 		ParseArgs([]string{})
 	require.NoError(t, r.Err)
 }
+
+func TestCLIArgsField(t *testing.T) {
+	type Cmd struct {
+		Bool   bool
+		String string
+		Int    int
+		Args   []string `cli:"args"`
+	}
+	cmd := &Cmd{}
+	r := New("test", cmd).
+		ParseArgs([]string{
+			"--bool",
+			"--string", "hello",
+			"--int", "42",
+			"hello", "world",
+		})
+	require.NoError(t, r.Err)
+
+	expected := &Cmd{
+		Bool:   true,
+		String: "hello",
+		Int:    42,
+		Args:   []string{"hello", "world"},
+	}
+	assert.Equal(t, expected, cmd)
+}

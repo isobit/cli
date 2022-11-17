@@ -24,29 +24,34 @@ func (f field) Default() string {
 	return f.flagValue.String()
 }
 
-func (cli *CLI) getFieldsFromConfig(config interface{}) ([]field, error) {
+type argsField struct {
+	setter func([]string)
+}
+
+func (cli *CLI) getFieldsFromConfig(config interface{}) ([]field, *argsField, error) {
 	configVal := reflect.ValueOf(config)
 	if !configVal.IsValid() {
-		return nil, fmt.Errorf("invalid config value")
+		return nil, nil, fmt.Errorf("invalid config value")
 	}
 	if configVal.Kind() != reflect.Ptr {
-		return nil, fmt.Errorf("config must be a struct pointer (got %s)", configVal.Type())
+		return nil, nil, fmt.Errorf("config must be a struct pointer (got %s)", configVal.Type())
 	}
 
 	configElemVal := configVal.Elem()
 	if !configElemVal.IsValid() {
-		return nil, fmt.Errorf("invalid config element value")
+		return nil, nil, fmt.Errorf("invalid config element value")
 	}
 	if configElemVal.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("config must be a struct pointer (got %s)", configVal.Type())
+		return nil, nil, fmt.Errorf("config must be a struct pointer (got %s)", configVal.Type())
 	}
 
 	return cli.getFields(configElemVal)
 }
 
 // sv must be a reflected struct pointer element
-func (cli *CLI) getFields(sv reflect.Value) ([]field, error) {
+func (cli *CLI) getFields(sv reflect.Value) ([]field, *argsField, error) {
 	fields := []field{}
+	var argsField *argsField
 	for i := 0; i < sv.NumField(); i++ {
 		sf := sv.Type().Field(i)
 		val := sv.Field(i)
@@ -58,7 +63,7 @@ func (cli *CLI) getFields(sv reflect.Value) ([]field, error) {
 
 		meta, err := newFieldValueMeta(sf, val)
 		if err != nil {
-			return nil, fmt.Errorf("problem with field %s.%s: %w", sv.Type(), sf.Name, err)
+			return nil, nil, fmt.Errorf("problem with field %s.%s: %w", sv.Type(), sf.Name, err)
 		}
 
 		// ignore fields with the "-" tag (like json)
@@ -68,20 +73,29 @@ func (cli *CLI) getFields(sv reflect.Value) ([]field, error) {
 
 		if meta.embedded {
 			// embedded struct, recurse
-			embeddedFields, err := cli.getFields(val)
+			embeddedFields, embeddedArgsField, err := cli.getFields(val)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			fields = append(fields, embeddedFields...)
+			if argsField == nil {
+				argsField = embeddedArgsField
+			}
+		} else if meta.tags.args {
+			field, err := cli.getArgsField(meta)
+			if err != nil {
+				return nil, nil, fmt.Errorf("problem with field %s.%s: %w", sv.Type(), sf.Name, err)
+			}
+			argsField = &field
 		} else {
 			field, err := cli.getField(meta)
 			if err != nil {
-				return nil, fmt.Errorf("problem with field %s.%s: %w", sv.Type(), sf.Name, err)
+				return nil, nil, fmt.Errorf("problem with field %s.%s: %w", sv.Type(), sf.Name, err)
 			}
 			fields = append(fields, field)
 		}
 	}
-	return fields, nil
+	return fields, argsField, nil
 }
 
 func (cli *CLI) getField(meta fieldValueMeta) (field, error) {
@@ -95,7 +109,7 @@ func (cli *CLI) getField(meta fieldValueMeta) (field, error) {
 		return field{}, fmt.Errorf("not supported: %w", err)
 	}
 
-	f := field{
+	return field{
 		Name:        name,
 		ShortName:   meta.tags.short,
 		Help:        meta.tags.help,
@@ -105,8 +119,23 @@ func (cli *CLI) getField(meta fieldValueMeta) (field, error) {
 		HasArg:      !flagValue.IsBoolFlag(),
 		Hidden:      meta.tags.hidden,
 		flagValue:   flagValue,
+	}, nil
+}
+
+func (cli *CLI) getArgsField(meta fieldValueMeta) (argsField, error) {
+	val := meta.value
+	if !val.CanAddr() {
+		return argsField{}, fmt.Errorf("field has an args tag but type is not a slice of strings")
 	}
-	return f, nil
+	slicePointer, ok := val.Addr().Interface().(*[]string)
+	if !ok {
+		return argsField{}, fmt.Errorf("field has an args tag but type is not a slice of strings")
+	}
+	return argsField{
+		setter: func(args []string) {
+			*slicePointer = args
+		},
+	}, nil
 }
 
 type fieldValueMeta struct {
@@ -143,6 +172,7 @@ type fieldTags struct {
 	hideDefault   bool
 	hidden        bool
 	append        bool
+	args          bool
 }
 
 func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
@@ -203,6 +233,10 @@ func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
 
 	if _, ok := pop("hidden"); ok {
 		t.hidden = true
+	}
+
+	if _, ok := pop("args"); ok {
+		t.args = true
 	}
 
 	if len(m) > 0 {
