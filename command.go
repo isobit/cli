@@ -187,6 +187,23 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 		return r.err(UsageError(err))
 	}
 
+	// Handle remaining arguments so we get unknown command errors before
+	// invoking Before.
+	var subCmd *Command
+	rargs := cmd.flagset.Args()
+	if len(rargs) > 0 {
+		if cmd.argsField != nil {
+			cmd.argsField.setter(rargs)
+		} else {
+			cmdName := rargs[0]
+			if cmd, ok := cmd.commandMap[cmdName]; ok {
+				subCmd = cmd
+			} else {
+				return r.err(UsageErrorf("unknown command %s", cmdName))
+			}
+		}
+	}
+
 	// If the config implements a Before method, run it before we recursively
 	// parse subcommands.
 	if beforer, ok := cmd.config.(Beforer); ok {
@@ -195,19 +212,9 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 		}
 	}
 
-	// Handle remaining arguments, recursively parse subcommands.
-	rargs := cmd.flagset.Args()
-	if len(rargs) > 0 {
-		if cmd.argsField != nil {
-			cmd.argsField.setter(rargs)
-		} else {
-			cmdName := rargs[0]
-			if cmd, ok := cmd.commandMap[cmdName]; ok {
-				return cmd.ParseArgs(rargs[1:])
-			} else {
-				return r.err(UsageErrorf("unknown command %s", cmdName))
-			}
-		}
+	// Recursive to subcommand parsing, if applicable.
+	if subCmd != nil {
+		return subCmd.ParseArgs(rargs[1:])
 	}
 
 	r.runFunc = getRunFunc(cmd.config)

@@ -320,3 +320,18 @@ func TestCLIArgsField(t *testing.T) {
 	}
 	assert.Equal(t, expected, cmd)
 }
+
+type BoomBeforeCmd struct {}
+func (BoomBeforeCmd) Before() error {
+	return fmt.Errorf("boom!")
+}
+
+func TestCLIInvalidSubcommandAndBefore(t *testing.T) {
+	cmd := &BoomBeforeCmd{}
+	r := New("test", cmd).
+		ParseArgs([]string{
+			"not-a-subcmd",
+		})
+	require.Error(t, r.Err)
+	assert.Contains(t, r.Err.Error(), "unknown command")
+}
