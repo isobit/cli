@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -99,7 +99,7 @@ func (cli *CLI) Build(name string, config interface{}, opts ...CommandOption) (*
 
 func newFlagSet(name string, fields []field) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	fs.SetOutput(ioutil.Discard)
+	fs.SetOutput(io.Discard)
 	for _, f := range fields {
 		fs.Var(f.flagValue, f.Name, f.Help)
 		if f.ShortName != "" {
