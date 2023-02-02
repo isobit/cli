@@ -2,7 +2,7 @@
 pkgs.mkShell {
   nativeBuildInputs = with pkgs; [
     gnumake
-    go_1_17
+    go_1_19
     golangci-lint
   ];
 }
