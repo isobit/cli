@@ -187,15 +187,20 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 	var subCmd *Command
 	rargs := cmd.flagset.Args()
 	if len(rargs) > 0 {
-		if cmd.argsField != nil {
+		switch {
+		case cmd.argsField != nil:
 			cmd.argsField.setter(rargs)
-		} else {
+
+		case len(cmd.commandMap) > 0:
 			cmdName := rargs[0]
 			if cmd, ok := cmd.commandMap[cmdName]; ok {
 				subCmd = cmd
 			} else {
-				return r.err(UsageErrorf("unknown command %s", cmdName))
+				return r.err(UsageErrorf("unknown command: %s", cmdName))
 			}
+
+		default:
+			return r.err(UsageErrorf("command does not take arguments"))
 		}
 	}
 

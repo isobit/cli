@@ -333,5 +333,5 @@ func TestCLIInvalidSubcommandAndBefore(t *testing.T) {
 			"not-a-subcmd",
 		})
 	require.Error(t, r.Err)
-	assert.Contains(t, r.Err.Error(), "unknown command")
+	assert.Contains(t, r.Err.Error(), "command does not take arguments")
 }
