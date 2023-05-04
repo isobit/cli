@@ -321,7 +321,8 @@ func TestCLIArgsField(t *testing.T) {
 	assert.Equal(t, expected, cmd)
 }
 
-type BoomBeforeCmd struct {}
+type BoomBeforeCmd struct{}
+
 func (BoomBeforeCmd) Before() error {
 	return fmt.Errorf("boom!")
 }
