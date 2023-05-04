@@ -182,11 +182,6 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 		return r.err(UsageErrorf("failed to parse environment variables: %w", err))
 	}
 
-	// Return an error if any required fields were not set at least once.
-	if err := cmd.checkRequired(); err != nil {
-		return r.err(UsageError(err))
-	}
-
 	// Handle remaining arguments so we get unknown command errors before
 	// invoking Before.
 	var subCmd *Command
@@ -202,6 +197,11 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 				return r.err(UsageErrorf("unknown command %s", cmdName))
 			}
 		}
+	}
+
+	// Return an error if any required fields were not set at least once.
+	if err := cmd.checkRequired(); err != nil {
+		return r.err(UsageError(err))
 	}
 
 	// If the config implements a Before method, run it before we recursively
