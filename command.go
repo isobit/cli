@@ -151,83 +151,85 @@ func (cmd *Command) Parse() ParseResult {
 // If a Before method is implemented on the config, this method will call it
 // before calling Run or recursing into any subcommand parsing.
 func (cmd *Command) ParseArgs(args []string) ParseResult {
-	if args == nil {
-		args = []string{}
-	}
+	return cmd.ParseArgsGNU(args)
 
-	r := ParseResult{Command: cmd}
+	// if args == nil {
+	// 	args = []string{}
+	// }
 
-	if cmd.parent == nil && len(args) > 0 {
-		// Do a minimal recursive parsing pass (only on the internal flagset)
-		// so we can exit early with help if the help flag is passed on this
-		// command or any subcommand before proceeding.
-		helpParsedArgs := cmd.helpPass(args)
-		if helpParsedArgs.Err == ErrHelp {
-			return helpParsedArgs
-		}
-	}
+	// r := ParseResult{Command: cmd}
 
-	// Parse arguments using the flagset.
-	if err := cmd.flagset.Parse(args); err != nil {
-		return r.err(UsageErrorf("failed to parse args: %w", err))
-	}
+	// if cmd.parent == nil && len(args) > 0 {
+	// 	// Do a minimal recursive parsing pass (only on the internal flagset)
+	// 	// so we can exit early with help if the help flag is passed on this
+	// 	// command or any subcommand before proceeding.
+	// 	helpParsedArgs := cmd.helpPass(args)
+	// 	if helpParsedArgs.Err == ErrHelp {
+	// 		return helpParsedArgs
+	// 	}
+	// }
 
-	// Return ErrHelp if help was requested.
-	if cmd.internalConfig.Help {
-		return r.err(ErrHelp)
-	}
+	// // Parse arguments using the flagset.
+	// if err := cmd.flagset.Parse(args); err != nil {
+	// 	return r.err(UsageErrorf("failed to parse args: %w", err))
+	// }
 
-	// Parse environment variables.
-	if err := cmd.parseEnvVars(); err != nil {
-		return r.err(UsageErrorf("failed to parse environment variables: %w", err))
-	}
+	// // Return ErrHelp if help was requested.
+	// if cmd.internalConfig.Help {
+	// 	return r.err(ErrHelp)
+	// }
 
-	// Handle remaining arguments so we get unknown command errors before
-	// invoking Before.
-	var subCmd *Command
-	rargs := cmd.flagset.Args()
-	if len(rargs) > 0 {
-		switch {
-		case cmd.argsField != nil:
-			cmd.argsField.setter(rargs)
+	// // Parse environment variables.
+	// if err := cmd.parseEnvVars(); err != nil {
+	// 	return r.err(UsageErrorf("failed to parse environment variables: %w", err))
+	// }
 
-		case len(cmd.commandMap) > 0:
-			cmdName := rargs[0]
-			if cmd, ok := cmd.commandMap[cmdName]; ok {
-				subCmd = cmd
-			} else {
-				return r.err(UsageErrorf("unknown command: %s", cmdName))
-			}
+	// // Handle remaining arguments so we get unknown command errors before
+	// // invoking Before.
+	// var subCmd *Command
+	// rargs := cmd.flagset.Args()
+	// if len(rargs) > 0 {
+	// 	switch {
+	// 	case cmd.argsField != nil:
+	// 		cmd.argsField.setter(rargs)
 
-		default:
-			return r.err(UsageErrorf("command does not take arguments"))
-		}
-	}
+	// 	case len(cmd.commandMap) > 0:
+	// 		cmdName := rargs[0]
+	// 		if cmd, ok := cmd.commandMap[cmdName]; ok {
+	// 			subCmd = cmd
+	// 		} else {
+	// 			return r.err(UsageErrorf("unknown command: %s", cmdName))
+	// 		}
 
-	// Return an error if any required fields were not set at least once.
-	if err := cmd.checkRequired(); err != nil {
-		return r.err(UsageError(err))
-	}
+	// 	default:
+	// 		return r.err(UsageErrorf("command does not take arguments"))
+	// 	}
+	// }
 
-	// If the config implements a Before method, run it before we recursively
-	// parse subcommands.
-	if beforer, ok := cmd.config.(Beforer); ok {
-		if err := beforer.Before(); err != nil {
-			return r.err(err)
-		}
-	}
+	// // Return an error if any required fields were not set at least once.
+	// if err := cmd.checkRequired(); err != nil {
+	// 	return r.err(UsageError(err))
+	// }
 
-	// Recursive to subcommand parsing, if applicable.
-	if subCmd != nil {
-		return subCmd.ParseArgs(rargs[1:])
-	}
+	// // If the config implements a Before method, run it before we recursively
+	// // parse subcommands.
+	// if beforer, ok := cmd.config.(Beforer); ok {
+	// 	if err := beforer.Before(); err != nil {
+	// 		return r.err(err)
+	// 	}
+	// }
 
-	r.runFunc = getRunFunc(cmd.config)
-	if r.runFunc == nil && len(cmd.commands) != 0 {
-		return r.err(UsageErrorf("no command specified"))
-	}
+	// // Recursive to subcommand parsing, if applicable.
+	// if subCmd != nil {
+	// 	return subCmd.ParseArgs(rargs[1:])
+	// }
 
-	return r
+	// r.runFunc = getRunFunc(cmd.config)
+	// if r.runFunc == nil && len(cmd.commands) != 0 {
+	// 	return r.err(UsageErrorf("no command specified"))
+	// }
+
+	// return r
 }
 
 type runFunc struct {

@@ -183,8 +183,26 @@ func TestCLIEnvVarPrecedence(t *testing.T) {
 }
 
 func TestCLIErrHelp(t *testing.T) {
-	r := New("test", &struct{}{}).
+	r := New("test", nil).
 		ParseArgs([]string{"--help"})
+	assert.Equal(t, r.Err, ErrHelp)
+}
+
+func TestCLIErrHelpCommand(t *testing.T) {
+	r := New("test", nil).
+		ParseArgs([]string{"help"})
+	assert.Equal(t, r.Err, ErrHelp)
+}
+
+func TestCLIErrHelpCommandSubcommand(t *testing.T) {
+	r := New(
+		"test", nil,
+		New(
+			"foo", nil,
+			New("bar", nil),
+		),
+	).
+		ParseArgs([]string{"help", "foo", "bar"})
 	assert.Equal(t, r.Err, ErrHelp)
 }
 
@@ -335,4 +353,31 @@ func TestCLIInvalidSubcommandAndBefore(t *testing.T) {
 		})
 	require.Error(t, r.Err)
 	assert.Contains(t, r.Err.Error(), "command does not take arguments")
+}
+
+func TestCLIGNUShortOpts(t *testing.T) {
+	type Cmd struct {
+		Bool        bool   `cli:"short=b"`
+		AnotherBool bool   `cli:"short=a"`
+		MoreBool    bool   `cli:"short=m"`
+		String      string `cli:"short=s"`
+		Int         int    `cli:"short=i"`
+	}
+	cmd := &Cmd{}
+	r := New("test", cmd).
+		ParseArgs([]string{
+			"-ab",
+			"-ms", "hello",
+			"-i", "42",
+		})
+	require.NoError(t, r.Err)
+
+	expected := &Cmd{
+		Bool:        true,
+		AnotherBool: true,
+		MoreBool:    true,
+		String:      "hello",
+		Int:         42,
+	}
+	assert.Equal(t, expected, cmd)
 }
