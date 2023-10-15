@@ -44,7 +44,7 @@ func TestFieldAppend(t *testing.T) {
 		fields, _, err := defaultCLI.getFieldsFromConfig(cfg)
 		require.NoError(t, err)
 		require.Len(t, fields, 1)
-		flag := fields[0].flagValue
+		flag := fields[0].value
 		return func(s string) {
 			err := flag.Set(s)
 			require.NoError(t, err)

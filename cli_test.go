@@ -285,7 +285,7 @@ func TestCLISetter(t *testing.T) {
 	b := &strings.Builder{}
 	cli := CLI{
 		ErrWriter: b,
-		Setter: func(i interface{}) Setter {
+		Setter: func(i interface{}) setter {
 			switch v := i.(type) {
 			case *time.Time:
 				return &testTimeSetter{v}

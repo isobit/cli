@@ -1,14 +1,41 @@
+/*
+Some code in this file was copied from the go "flag" package source and
+modified. That code's license is retained here:
+
+Copyright (c) 2009 The Go Authors. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+   * Neither the name of Google Inc. nor the names of its
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 package cli
 
 import (
-	"flag"
 	"fmt"
 )
-
-type boolFlag interface {
-	flag.Value
-	IsBoolFlag() bool
-}
 
 type parser struct {
 	fields map[string]field
@@ -31,7 +58,6 @@ func (p *parser) parse(arguments []string) error {
 	return nil
 }
 
-// copied and modified from the flag package
 func (p *parser) parseOne() (bool, error) {
 	if len(p.args) == 0 {
 		return false, nil
@@ -53,6 +79,9 @@ func (p *parser) parseOne() (bool, error) {
 		return false, fmt.Errorf("bad flag syntax: %s", s)
 	}
 
+	// If single dash, handle each rune in the name as a separate flag, except
+	// for the last one which can be handled normally since it make have a
+	// following argument.
 	if numMinuses == 1 {
 		i := 0
 		for ; i < len(name)-1; i++ {
@@ -90,7 +119,9 @@ func (p *parser) parseOneFlag(name string, hasValue bool, value string, canLookN
 		return fmt.Errorf("flag provided but not defined: %s", name)
 	}
 
-	if fv, ok := field.flagValue.(boolFlag); ok && fv.IsBoolFlag() { // special case: doesn't need an arg
+	fv := field.value
+
+	if fv.isBoolFlag { // special case: doesn't need an arg
 		if hasValue {
 			if err := fv.Set(value); err != nil {
 				return fmt.Errorf("invalid boolean value %q for flag %s: %v", value, name, err)
@@ -110,95 +141,9 @@ func (p *parser) parseOneFlag(name string, hasValue bool, value string, canLookN
 		if !hasValue {
 			return fmt.Errorf("flag needs an argument: %s", name)
 		}
-		if err := flag.Value.Set(value); err != nil {
+		if err := fv.Set(value); err != nil {
 			return fmt.Errorf("invalid value %q for flag %s: %v", value, name, err)
 		}
 	}
 	return nil
-}
-
-func (cmd *Command) ParseArgsGNU(args []string) ParseResult {
-	if args == nil {
-		args = []string{}
-	}
-
-	r := ParseResult{Command: cmd}
-
-	// Help command
-	if cmd.parent == nil && len(args) > 0 && args[0] == "help" {
-		curCmd := cmd
-		for i := 1; i < len(args); i++ {
-			cmdName := args[i]
-			if subCmd, ok := curCmd.commandMap[cmdName]; ok {
-				curCmd = subCmd
-			} else {
-				return r.err(UsageErrorf("unknown command: %s", cmdName))
-			}
-		}
-		return ParseResult{Command: curCmd, Err: ErrHelp}
-	}
-
-	p := parser{Fields: cmd.fields, args: args}
-
-	// Parse arguments using the flagset.
-	if err := p.parse(args); err != nil {
-		return r.err(UsageErrorf("failed to parse args: %w", err))
-	}
-
-	// Return ErrHelp if help was requested.
-	if cmd.internalConfig.Help {
-		return r.err(ErrHelp)
-	}
-
-	// Parse environment variables.
-	if err := cmd.parseEnvVars(); err != nil {
-		return r.err(UsageErrorf("failed to parse environment variables: %w", err))
-	}
-
-	// Handle remaining arguments so we get unknown command errors before
-	// invoking Before.
-	var subCmd *Command
-	rargs := p.args
-	if len(rargs) > 0 {
-		switch {
-		case cmd.argsField != nil:
-			cmd.argsField.setter(rargs)
-
-		case len(cmd.commandMap) > 0:
-			cmdName := rargs[0]
-			if cmd, ok := cmd.commandMap[cmdName]; ok {
-				subCmd = cmd
-			} else {
-				return r.err(UsageErrorf("unknown command: %s", cmdName))
-			}
-
-		default:
-			return r.err(UsageErrorf("command does not take arguments"))
-		}
-	}
-
-	// Return an error if any required fields were not set at least once.
-	if err := cmd.checkRequired(); err != nil {
-		return r.err(UsageError(err))
-	}
-
-	// If the config implements a Before method, run it before we recursively
-	// parse subcommands.
-	if beforer, ok := cmd.config.(Beforer); ok {
-		if err := beforer.Before(); err != nil {
-			return r.err(err)
-		}
-	}
-
-	// Recursive to subcommand parsing, if applicable.
-	if subCmd != nil {
-		return subCmd.ParseArgsGNU(rargs[1:])
-	}
-
-	r.runFunc = getRunFunc(cmd.config)
-	if r.runFunc == nil && len(cmd.commands) != 0 {
-		return r.err(UsageErrorf("no command specified"))
-	}
-
-	return r
 }

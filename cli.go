@@ -93,4 +93,4 @@ func Build(name string, config interface{}, opts ...CommandOption) (*Command, er
 
 type LookupEnvFunc func(key string) (val string, ok bool, err error)
 
-type SetterFunc func(interface{}) Setter
+type SetterFunc func(interface{}) setter

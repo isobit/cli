@@ -17,11 +17,12 @@ type field struct {
 	EnvVarName  string
 	HasArg      bool
 	Hidden      bool
-	flagValue   *genericFlagValue
+
+	value *fieldValue
 }
 
 func (f field) Default() string {
-	return f.flagValue.String()
+	return f.value.String()
 }
 
 type argsField struct {
@@ -104,7 +105,7 @@ func (cli *CLI) getField(meta fieldValueMeta) (field, error) {
 		name = xstrings.ToKebabCase(meta.structField.Name)
 	}
 
-	flagValue, err := cli.getFlagValue(name, meta)
+	fieldValue, err := cli.getFieldValue(name, meta)
 	if err != nil {
 		return field{}, fmt.Errorf("not supported: %w", err)
 	}
@@ -116,9 +117,9 @@ func (cli *CLI) getField(meta fieldValueMeta) (field, error) {
 		Placeholder: meta.tags.placeholder,
 		Required:    meta.tags.required,
 		EnvVarName:  meta.tags.env,
-		HasArg:      !flagValue.IsBoolFlag(),
+		HasArg:      !fieldValue.isBoolFlag,
 		Hidden:      meta.tags.hidden,
-		flagValue:   flagValue,
+		value:       fieldValue,
 	}, nil
 }
 
@@ -252,7 +253,7 @@ func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
 	return t, nil
 }
 
-func (cli *CLI) getFlagValue(name string, meta fieldValueMeta) (*genericFlagValue, error) {
+func (cli *CLI) getFieldValue(name string, meta fieldValueMeta) (*fieldValue, error) {
 	val := meta.value
 
 	// Can't set into a nil pointer, so allocate a zero value for the field's
@@ -287,7 +288,7 @@ func (cli *CLI) getFlagValue(name string, meta fieldValueMeta) (*genericFlagValu
 		}
 	}
 
-	var set Setter
+	var set setter
 	var str stringer
 
 	// Interfaces might be implemented using value or pointer receivers, so
@@ -347,20 +348,20 @@ func (cli *CLI) getFlagValue(name string, meta fieldValueMeta) (*genericFlagValu
 		}
 	}
 
-	return &genericFlagValue{
+	return &fieldValue{
 		name:       name,
-		Setter:     set,
+		setter:     set,
 		stringer:   str,
 		isBoolFlag: meta.value.Kind() == reflect.Bool,
 	}, nil
 }
 
-type Setter interface {
+type setter interface {
 	Set(s string) error
 }
 
 type pointerSetter struct {
-	setter           Setter
+	setter           setter
 	targetValue      reflect.Value
 	placeholderValue reflect.Value
 }
@@ -378,7 +379,7 @@ func (ps pointerSetter) Set(s string) error {
 }
 
 type appendSliceSetter struct {
-	setter           Setter
+	setter           setter
 	targetValue      reflect.Value
 	placeholderValue reflect.Value
 	elemsArePointers bool
@@ -406,37 +407,21 @@ type stringer interface {
 	String() string
 }
 
-type genericFlagValue struct {
+type fieldValue struct {
 	name string
-	Setter
+	setter
 	stringer
 	isBoolFlag bool
 	setCount   uint
 }
 
-func (f *genericFlagValue) Set(s string) error {
-	if f.Setter == nil {
-		panic("cli: genericFlagValue has no setter, this should not happen")
+func (f *fieldValue) Set(s string) error {
+	if f.setter == nil {
+		panic("cli: fieldValue has no setter, this should not happen")
 	}
 	f.setCount += 1
-	if err := f.Setter.Set(s); err != nil {
+	if err := f.setter.Set(s); err != nil {
 		return err
 	}
 	return nil
-}
-
-func (f *genericFlagValue) String() string {
-	if f.stringer == nil {
-		// Sometimes the flag package uses reflection to construct a zero
-		// genericFlagValue, which obviously doesn't have a stringer, and then
-		// calls String() on it to try to see if the default value is the zero
-		// value. We don't care if it get the correct answer (it's only used in
-		// PrintDefaults which we don't use).
-		return "<unknown>"
-	}
-	return f.stringer.String()
-}
-
-func (f *genericFlagValue) IsBoolFlag() bool {
-	return f.isBoolFlag
 }

@@ -9,9 +9,9 @@ import (
 
 // setters
 
-func tryGetSetter(i interface{}) Setter {
+func tryGetSetter(i interface{}) setter {
 	switch v := i.(type) {
-	case Setter:
+	case setter:
 		return v
 	case encoding.TextUnmarshaler:
 		return textSetter{v}
