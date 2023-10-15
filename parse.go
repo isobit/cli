@@ -11,7 +11,7 @@ type boolFlag interface {
 }
 
 type parser struct {
-	*flag.FlagSet
+	fields map[string]field
 	parsed bool
 	args   []string
 }
@@ -85,12 +85,12 @@ func (p *parser) parseOne() (bool, error) {
 }
 
 func (p *parser) parseOneFlag(name string, hasValue bool, value string, canLookNext bool) error {
-	flag := p.Lookup(name)
-	if flag == nil {
+	field, ok := p.fields[name]
+	if !ok {
 		return fmt.Errorf("flag provided but not defined: %s", name)
 	}
 
-	if fv, ok := flag.Value.(boolFlag); ok && fv.IsBoolFlag() { // special case: doesn't need an arg
+	if fv, ok := field.flagValue.(boolFlag); ok && fv.IsBoolFlag() { // special case: doesn't need an arg
 		if hasValue {
 			if err := fv.Set(value); err != nil {
 				return fmt.Errorf("invalid boolean value %q for flag %s: %v", value, name, err)
@@ -138,7 +138,7 @@ func (cmd *Command) ParseArgsGNU(args []string) ParseResult {
 		return ParseResult{Command: curCmd, Err: ErrHelp}
 	}
 
-	p := parser{FlagSet: cmd.flagset, args: args}
+	p := parser{Fields: cmd.fields, args: args}
 
 	// Parse arguments using the flagset.
 	if err := p.parse(args); err != nil {

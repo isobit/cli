@@ -256,33 +256,6 @@ func getRunFunc(config interface{}) *runFunc {
 	return nil
 }
 
-// helpPass does a minimal recursive parsing pass using only the internal
-// flagset, so that help flags can be detected on subcommands early.
-func (cmd *Command) helpPass(args []string) ParseResult {
-	r := ParseResult{Command: cmd}
-
-	// Parse arguments using the flagset.
-	// Intentionally ignore errors since we want to ignore any non-internal
-	// flags.
-	_ = cmd.flagsetInternal.Parse(args)
-
-	// Return ErrHelp if help was requested.
-	if cmd.internalConfig.Help {
-		return r.err(ErrHelp)
-	}
-
-	// Handle remaining arguments, recursively parse subcommands.
-	rargs := cmd.flagsetInternal.Args()
-	if len(rargs) > 0 {
-		cmdName := rargs[0]
-		if cmd, ok := cmd.commandMap[cmdName]; ok {
-			return cmd.helpPass(rargs[1:])
-		}
-	}
-
-	return r
-}
-
 // parseEnvVars sets any unset field values using the environment variable
 // matching the "env" tag of the field, if present.
 func (cmd *Command) parseEnvVars() error {
