@@ -2,9 +2,7 @@ package cli
 
 import (
 	"context"
-	"flag"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -31,19 +29,18 @@ type ExitCoder interface {
 }
 
 type Command struct {
-	cli             *CLI
-	name            string
-	help            string
-	description     string
-	config          interface{}
-	internalConfig  internalConfig
-	fields          []field
-	argsField       *argsField
-	flagset         *flag.FlagSet
-	flagsetInternal *flag.FlagSet
-	parent          *Command
-	commands        []*Command
-	commandMap      map[string]*Command
+	cli            *CLI
+	name           string
+	help           string
+	description    string
+	config         interface{}
+	internalConfig internalConfig
+	fields         []field
+	fieldMap       map[string]field
+	argsField      *argsField
+	parent         *Command
+	commands       []*Command
+	commandMap     map[string]*Command
 }
 
 type internalConfig struct {
@@ -67,6 +64,7 @@ func (cli *CLI) Build(name string, config interface{}, opts ...CommandOption) (*
 		name:       name,
 		config:     config,
 		fields:     []field{},
+		fieldMap:   map[string]field{},
 		commands:   []*Command{},
 		commandMap: map[string]*Command{},
 	}
@@ -76,7 +74,6 @@ func (cli *CLI) Build(name string, config interface{}, opts ...CommandOption) (*
 		return nil, fmt.Errorf("error building internal config: %w", err)
 	}
 	cmd.fields = append(cmd.fields, internalFields...)
-	cmd.flagsetInternal = newFlagSet(name, internalFields)
 
 	configFields, argsField, err := cli.getFieldsFromConfig(config)
 	if err != nil {
@@ -84,7 +81,13 @@ func (cli *CLI) Build(name string, config interface{}, opts ...CommandOption) (*
 	}
 	cmd.fields = append(cmd.fields, configFields...)
 	cmd.argsField = argsField
-	cmd.flagset = newFlagSet(name, cmd.fields)
+
+	for _, f := range cmd.fields {
+		cmd.fieldMap[f.Name] = f
+		if f.ShortName != "" {
+			cmd.fieldMap[f.ShortName] = f
+		}
+	}
 
 	if setuper, ok := cmd.config.(Setuper); ok {
 		setuper.SetupCommand(cmd)
@@ -95,18 +98,6 @@ func (cli *CLI) Build(name string, config interface{}, opts ...CommandOption) (*
 	}
 
 	return cmd, nil
-}
-
-func newFlagSet(name string, fields []field) *flag.FlagSet {
-	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	for _, f := range fields {
-		fs.Var(f.flagValue, f.Name, f.Help)
-		if f.ShortName != "" {
-			fs.Var(f.flagValue, f.ShortName, f.Help)
-		}
-	}
-	return fs
 }
 
 func (cmd *Command) SetHelp(help string) *Command {
@@ -157,18 +148,10 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 
 	r := ParseResult{Command: cmd}
 
-	if cmd.parent == nil && len(args) > 0 {
-		// Do a minimal recursive parsing pass (only on the internal flagset)
-		// so we can exit early with help if the help flag is passed on this
-		// command or any subcommand before proceeding.
-		helpParsedArgs := cmd.helpPass(args)
-		if helpParsedArgs.Err == ErrHelp {
-			return helpParsedArgs
-		}
-	}
+	p := parser{fields: cmd.fieldMap, args: args}
 
 	// Parse arguments using the flagset.
-	if err := cmd.flagset.Parse(args); err != nil {
+	if err := p.parse(args); err != nil {
 		return r.err(UsageErrorf("failed to parse args: %w", err))
 	}
 
@@ -177,22 +160,30 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 		return r.err(ErrHelp)
 	}
 
-	// Parse environment variables.
-	if err := cmd.parseEnvVars(); err != nil {
-		return r.err(UsageErrorf("failed to parse environment variables: %w", err))
+	// Help command
+	if cmd.parent == nil && cmd.argsField == nil && len(p.args) > 0 && p.args[0] == "help" {
+		curCmd := cmd
+		for i := 1; i < len(p.args); i++ {
+			cmdName := p.args[i]
+			if subCmd, ok := curCmd.commandMap[cmdName]; ok {
+				curCmd = subCmd
+			} else {
+				return r.err(UsageErrorf("unknown command: %s", cmdName))
+			}
+		}
+		return ParseResult{Command: curCmd, Err: ErrHelp}
 	}
 
 	// Handle remaining arguments so we get unknown command errors before
 	// invoking Before.
 	var subCmd *Command
-	rargs := cmd.flagset.Args()
-	if len(rargs) > 0 {
+	if len(p.args) > 0 {
 		switch {
 		case cmd.argsField != nil:
-			cmd.argsField.setter(rargs)
+			cmd.argsField.setter(p.args)
 
 		case len(cmd.commandMap) > 0:
-			cmdName := rargs[0]
+			cmdName := p.args[0]
 			if cmd, ok := cmd.commandMap[cmdName]; ok {
 				subCmd = cmd
 			} else {
@@ -202,6 +193,11 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 		default:
 			return r.err(UsageErrorf("command does not take arguments"))
 		}
+	}
+
+	// Parse environment variables.
+	if err := cmd.parseEnvVars(); err != nil {
+		return r.err(UsageErrorf("failed to parse environment variables: %w", err))
 	}
 
 	// Return an error if any required fields were not set at least once.
@@ -219,7 +215,7 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 
 	// Recursive to subcommand parsing, if applicable.
 	if subCmd != nil {
-		return subCmd.ParseArgs(rargs[1:])
+		return subCmd.ParseArgs(p.args[1:])
 	}
 
 	r.runFunc = getRunFunc(cmd.config)
@@ -254,38 +250,11 @@ func getRunFunc(config interface{}) *runFunc {
 	return nil
 }
 
-// helpPass does a minimal recursive parsing pass using only the internal
-// flagset, so that help flags can be detected on subcommands early.
-func (cmd *Command) helpPass(args []string) ParseResult {
-	r := ParseResult{Command: cmd}
-
-	// Parse arguments using the flagset.
-	// Intentionally ignore errors since we want to ignore any non-internal
-	// flags.
-	_ = cmd.flagsetInternal.Parse(args)
-
-	// Return ErrHelp if help was requested.
-	if cmd.internalConfig.Help {
-		return r.err(ErrHelp)
-	}
-
-	// Handle remaining arguments, recursively parse subcommands.
-	rargs := cmd.flagsetInternal.Args()
-	if len(rargs) > 0 {
-		cmdName := rargs[0]
-		if cmd, ok := cmd.commandMap[cmdName]; ok {
-			return cmd.helpPass(rargs[1:])
-		}
-	}
-
-	return r
-}
-
 // parseEnvVars sets any unset field values using the environment variable
 // matching the "env" tag of the field, if present.
 func (cmd *Command) parseEnvVars() error {
 	for _, f := range cmd.fields {
-		if f.EnvVarName == "" || f.flagValue.setCount > 0 {
+		if f.EnvVarName == "" || f.value.setCount > 0 {
 			continue
 		}
 		val, ok, err := cmd.cli.LookupEnv(f.EnvVarName)
@@ -294,7 +263,7 @@ func (cmd *Command) parseEnvVars() error {
 			return err
 		}
 		if ok {
-			if err := f.flagValue.Set(val); err != nil {
+			if err := f.value.Set(val); err != nil {
 				return fmt.Errorf("error parsing %s: %w", f.EnvVarName, err)
 			}
 		}
@@ -305,7 +274,7 @@ func (cmd *Command) parseEnvVars() error {
 // checkRequired returns an error if any fields are required but have not been set.
 func (cmd *Command) checkRequired() error {
 	for _, f := range cmd.fields {
-		if f.Required && f.flagValue.setCount < 1 {
+		if f.Required && f.value.setCount < 1 {
 			return fmt.Errorf("required flag %s not set", f.Name)
 		}
 	}

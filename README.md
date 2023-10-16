@@ -90,7 +90,7 @@ Tags are parsed according to this ABNF:
 	key = *<anything except "=">
 	value = *<anything except ","> / "'" *<anything except "'"> "'"
 
-## Field Types and Flag Parsing
+## Field Types and Value Parsing
 
 Primitive types (e.g. `int` and `string`), and pointers to primitive types
 (e.g. `*int` and `*string`) are handled natively by `cli`. In the case of
@@ -139,6 +139,10 @@ func (foos *Foos) UnmarshalText(text []byte) error {
 }
 ```
 
+Default values for custom types are represented in help text using
+`fmt.Sprintf("%v", value)`. This can be overridden by defining a `String()
+string` method with the type itself or a pointer to the type as the receiver.
+
 ## Contexts and Signal Handling
 
 Here is an example of a "sleep" program which sleeps for the specified
@@ -176,3 +180,36 @@ func main() {
 		RunFatalWithSigCancel()
 }
 ```
+
+
+## Command Line Syntax
+
+Arguments are parsed using a more GNU-like modification of the algorithm used
+in the standard [`flag` package](https://pkg.go.dev/flag); notably, single
+dashes are treated differently from double dashes. The following forms are
+permitted:
+
+```
+--flag    // long boolean flag (no argument)
+-f        // single short flag (no argument)
+
+--flag=x  // long flag with argument
+--flag x  // long flag with argument
+-f=x      // single short flag with argument
+-f x      // single short flag with argument
+
+-abc      // multiple short boolean flags (a, b, and c)
+
+-abf x    // multiple short boolean flags (a, b) combined 
+          // with single short flag with argument (f)
+
+-abf=x    // multiple short boolean flags (a, b) combined 
+          // with single short flag with argument (f)
+```
+
+Flag parsing for each command stops just before the first non-flag argument
+(`-` is a non-flag argument) or after the terminator `--`. If the command has a
+field with the `cli:"args"` tag, its value is set to a string slice containing
+the remaining arguments. Otherwise, if the first non-flag argument is a
+subcommand, the remaining arguments are further parsed by that subcommand,
+recursively.

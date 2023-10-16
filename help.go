@@ -14,6 +14,9 @@ var helpTemplateString = `
 {{- if 0}}{{end -}}
 USAGE:
     {{.FullName}}{{if .Fields}} [OPTIONS]{{end}}{{if .Commands}} <COMMAND>{{end}}{{if .Args}} [ARGS]{{end}}
+{{- if .SupportsHelpCommand}}
+    {{.FullName}} help{{if .Commands}} [COMMAND...]{{end}}
+{{- end}}
 
 {{- if .Fields}}
 
@@ -81,12 +84,16 @@ func (cmd *Command) WriteHelp(w io.Writer) {
 		Fields      []field
 		Commands    []subcommandData
 		Args        bool
+
+		SupportsHelpCommand bool
 	}{
 		FullName:    cmd.fullName(),
 		Description: strings.ReplaceAll(strings.TrimSpace(cmd.description), "\n", "\n    "),
 		Fields:      cmd.fields,
 		Commands:    []subcommandData{},
 		Args:        cmd.argsField != nil,
+
+		SupportsHelpCommand: cmd.parent == nil && cmd.argsField == nil,
 	}
 	for _, cmd := range cmd.commands {
 		data.Commands = append(data.Commands, subcommandData{
