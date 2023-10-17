@@ -27,10 +27,8 @@ type CLI struct {
 	// Here is an example which uses a custom layout for parsing any time.Time
 	// fields:
 	//
-	//  type CustomTimeSetter struct {
-	//  	value *time.Time
-	//  }
-	//  func (ts *CustomTimeSetter) Set(s string) error {
+	//  type customTime time.Time
+	//  func (t *customTime) Set(s string) error {
 	//  	parsed, err := time.Parse("2006-01-02 15:04", s)
 	//  	if err != nil {
 	//  		return err
@@ -42,7 +40,7 @@ type CLI struct {
 	//  cli.Setter = func(i interface{}) cli.Setter {
 	//  	switch v := i.(type) {
 	//  	case *time.Time:
-	//  		return &CustomTimeSetter{v}
+	//  		return (*customTime)(v)
 	//  	default:
 	//  		// return nil to fall back on default behavior
 	//  		return nil

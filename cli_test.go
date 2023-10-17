@@ -268,16 +268,14 @@ func TestCLIEnvLookupError(t *testing.T) {
 	assert.Error(t, r.Err)
 }
 
-type testTimeSetter struct {
-	t *time.Time
-}
+type customTime time.Time
 
-func (ts *testTimeSetter) Set(s string) error {
+func (t *customTime) Set(s string) error {
 	v, err := time.Parse(time.Kitchen, s)
 	if err != nil {
 		return err
 	}
-	*ts.t = v
+	*t = (customTime)(v)
 	return nil
 }
 
@@ -285,10 +283,10 @@ func TestCLISetter(t *testing.T) {
 	b := &strings.Builder{}
 	cli := CLI{
 		ErrWriter: b,
-		Setter: func(i interface{}) setter {
+		Setter: func(i interface{}) Setter {
 			switch v := i.(type) {
 			case *time.Time:
-				return &testTimeSetter{v}
+				return (*customTime)(v)
 			default:
 				return nil
 			}
