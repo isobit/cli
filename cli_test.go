@@ -379,3 +379,12 @@ func TestCLIGNUShortOpts(t *testing.T) {
 	}
 	assert.Equal(t, expected, cmd)
 }
+
+func TestCLIConflicting(t *testing.T) {
+	type Cmd struct {
+		Foo bool `cli:"short=x"`
+		Bar bool `cli:"short=x"`
+	}
+	_, err := Build("test", &Cmd{})
+	require.Error(t, err)
+}

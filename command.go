@@ -29,22 +29,18 @@ type ExitCoder interface {
 }
 
 type Command struct {
-	cli            *CLI
-	name           string
-	help           string
-	description    string
-	config         interface{}
-	internalConfig internalConfig
-	fields         []field
-	fieldMap       map[string]field
-	argsField      *argsField
-	parent         *Command
-	commands       []*Command
-	commandMap     map[string]*Command
-}
-
-type internalConfig struct {
-	Help bool `cli:"short=h,help=show usage help"`
+	cli           *CLI
+	name          string
+	help          string
+	description   string
+	config        interface{}
+	helpRequested bool
+	fields        []field
+	fieldMap      map[string]field
+	argsField     *argsField
+	parent        *Command
+	commands      []*Command
+	commandMap    map[string]*Command
 }
 
 func (cli *CLI) New(name string, config interface{}, opts ...CommandOption) *Command {
@@ -69,23 +65,33 @@ func (cli *CLI) Build(name string, config interface{}, opts ...CommandOption) (*
 		commandMap: map[string]*Command{},
 	}
 
-	internalFields, _, err := cli.getFieldsFromConfig(&cmd.internalConfig)
-	if err != nil {
-		return nil, fmt.Errorf("error building internal config: %w", err)
-	}
-	cmd.fields = append(cmd.fields, internalFields...)
-
 	configFields, argsField, err := cli.getFieldsFromConfig(config)
 	if err != nil {
 		return nil, err
 	}
-	cmd.fields = append(cmd.fields, configFields...)
 	cmd.argsField = argsField
+	for _, f := range configFields {
+		if err := cmd.addField(f, false); err != nil {
+			return nil, err
+		}
+	}
 
-	for _, f := range cmd.fields {
-		cmd.fieldMap[f.Name] = f
-		if f.ShortName != "" {
-			cmd.fieldMap[f.ShortName] = f
+	if _, ok := cmd.fieldMap["help"]; !ok {
+		helpField := field{
+			Name:   "help",
+			Help:   "show usage help",
+			HasArg: false,
+			value: &fieldValue{
+				Setter:     &scanfSetter{&cmd.helpRequested},
+				stringer:   staticStringer(""),
+				isBoolFlag: true,
+			},
+		}
+		if _, ok := cmd.fieldMap["h"]; !ok {
+			helpField.ShortName = "h"
+		}
+		if err := cmd.addField(helpField, true); err != nil {
+			return nil, err
 		}
 	}
 
@@ -98,6 +104,28 @@ func (cli *CLI) Build(name string, config interface{}, opts ...CommandOption) (*
 	}
 
 	return cmd, nil
+}
+
+func (cmd *Command) addField(f field, prepend bool) error {
+	if prepend {
+		cmd.fields = append([]field{f}, cmd.fields...)
+	} else {
+		cmd.fields = append(cmd.fields, f)
+	}
+
+	if _, ok := cmd.fieldMap[f.Name]; ok {
+		return fmt.Errorf("multiple fields defined for name: %s", f.Name)
+	}
+	cmd.fieldMap[f.Name] = f
+
+	if f.ShortName != "" {
+		if _, ok := cmd.fieldMap[f.ShortName]; ok {
+			return fmt.Errorf("multiple fields defined for name: %s", f.ShortName)
+		}
+		cmd.fieldMap[f.ShortName] = f
+	}
+
+	return nil
 }
 
 func (cmd *Command) SetHelp(help string) *Command {
@@ -156,7 +184,7 @@ func (cmd *Command) ParseArgs(args []string) ParseResult {
 	}
 
 	// Return ErrHelp if help was requested.
-	if cmd.internalConfig.Help {
+	if cmd.helpRequested {
 		return r.err(ErrHelp)
 	}
 
