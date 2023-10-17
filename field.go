@@ -349,7 +349,6 @@ func (cli *CLI) getFieldValue(name string, meta fieldValueMeta) (*fieldValue, er
 	}
 
 	return &fieldValue{
-		name:       name,
 		Setter:     set,
 		stringer:   str,
 		isBoolFlag: meta.value.Kind() == reflect.Bool,
@@ -408,7 +407,6 @@ type stringer interface {
 }
 
 type fieldValue struct {
-	name string
 	Setter
 	stringer
 	isBoolFlag bool
