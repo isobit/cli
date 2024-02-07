@@ -72,7 +72,7 @@ func (cli *CLI) getFields(sv reflect.Value) ([]field, *argsField, error) {
 			continue
 		}
 
-		if meta.embedded {
+		if meta.embedded || meta.tags.embed {
 			// embedded struct, recurse
 			embeddedFields, embeddedArgsField, err := cli.getFields(val)
 			if err != nil {
@@ -173,6 +173,7 @@ type fieldTags struct {
 	hideDefault   bool
 	hidden        bool
 	append        bool
+	embed         bool
 	args          bool
 }
 
@@ -230,6 +231,10 @@ func parseFieldTags(tag reflect.StructTag) (fieldTags, error) {
 
 	if _, ok := pop("append"); ok {
 		t.append = true
+	}
+
+	if _, ok := pop("embed"); ok {
+		t.embed = true
 	}
 
 	if _, ok := pop("hidden"); ok {
