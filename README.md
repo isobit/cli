@@ -79,6 +79,8 @@ struct Example {
 | `name`        | Yes   | Explicit flag name (by default names are derived from the struct field name)                         |
 | `short`       | Yes   | Single character short name alias                                                                    |
 | `env`         | Yes   | Environment variable to use as a default value                                                       |
+| `default`     | Yes   | Custom default string in help text (does not affect actual default value)                            |
+| `nodefault`   | No    | Don't show default value in help text                                                                |
 | `hidden`      | No    | Don't show field in help text                                                                        |
 | `append`      | No    | Change flag setting behavior to append to value when specified multiple times (must be a slice type) |
 | `args`        | No    | Set this field to the remaining non-flag args instead of recursively parsing them as subcommands.    |
